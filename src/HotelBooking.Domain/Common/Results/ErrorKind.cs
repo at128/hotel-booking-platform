@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace HotelBooking.Domain.Common.Results;
+﻿namespace HotelBooking.Domain.Common.Results;
 
 public enum ErrorKind
 {
@@ -16,4 +10,3 @@ public enum ErrorKind
     Unauthorized,
     Forbidden,
 }
-

@@ -1,14 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace HotelBooking.Domain.Common.Results;
+﻿namespace HotelBooking.Domain.Common.Results;
 
 using System.ComponentModel;
 using System.Text.Json.Serialization;
-using HotelBooking.Domain.Common.Results.Abstractions;
 
 public static class Result
 {

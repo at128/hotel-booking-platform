@@ -7,11 +7,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
+	  <PackageReference Include="AspNetCore.HealthChecks.SqlServer" />
+	  <PackageReference Include="Serilog.AspNetCore" />
 	  <PackageReference Include="Asp.Versioning.Mvc" />
 	  <PackageReference Include="Asp.Versioning.Mvc.ApiExplorer" />
 	  <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
