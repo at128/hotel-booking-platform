@@ -27,8 +27,8 @@ public sealed record UserAuthResult(
     string Email,
     string FirstName,
     string LastName,
-    IList<string> Roles);
-
+    IList<string> Roles,
+    DateTimeOffset CreatedAt);  
 
 public sealed record UserProfileResult(
     Guid Id,

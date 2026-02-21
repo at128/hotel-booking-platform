@@ -17,12 +17,12 @@
     <PackageReference Include="MediatR" />
     <PackageReference Include="Microsoft.Extensions.Caching.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.Caching.Memory" />
+    <PackageReference Include="Microsoft.Extensions.Identity.Core" />
   </ItemGroup>
 
   <ItemGroup>
     <Folder Include="Features\Auth\Commands\Login\" />
     <Folder Include="Features\Auth\Commands\UpdateProfile\" />
-    <Folder Include="Features\Auth\Commands\Register\" />
     <Folder Include="Features\Auth\Queries\GetProfile\" />
   </ItemGroup>
 

@@ -20,6 +20,7 @@
     <!-- Caching -->
     <PackageVersion Include="Microsoft.Extensions.Caching.Hybrid" Version="9.4.0" />
     <PackageVersion Include="Microsoft.Extensions.Caching.Memory" Version="9.0.4" />
+    <PackageVersion Include="Microsoft.Extensions.Identity.Core" Version="9.0.4" />
     <!-- added -->
     <!-- Auth -->
     <PackageVersion Include="System.IdentityModel.Tokens.Jwt" Version="8.15.0" />

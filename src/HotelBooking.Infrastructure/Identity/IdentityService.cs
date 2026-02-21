@@ -46,7 +46,8 @@ public class IdentityService(
 
         return new UserAuthResult(
             user.Id, user.Email!, user.FirstName, user.LastName,
-            [HotelBookingConstants.Roles.User]);
+            [HotelBookingConstants.Roles.User],
+            user.CreatedAtUtc);
     }
 
     public async Task<Result<UserAuthResult>> ValidateCredentialsAsync(
@@ -63,7 +64,12 @@ public class IdentityService(
         var roles = await userManager.GetRolesAsync(user);
 
         return new UserAuthResult(
-            user.Id, user.Email!, user.FirstName, user.LastName, roles);
+            user.Id,
+            user.Email!,
+            user.FirstName,
+            user.LastName,
+            roles,
+            user.CreatedAtUtc);
     }
 
     public async Task<Result<UserProfileResult>> GetUserByIdAsync(
