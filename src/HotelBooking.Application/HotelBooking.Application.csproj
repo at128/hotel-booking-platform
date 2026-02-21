@@ -20,9 +20,4 @@
     <PackageReference Include="Microsoft.Extensions.Identity.Core" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Features\Auth\Commands\UpdateProfile\" />
-    <Folder Include="Features\Auth\Queries\GetProfile\" />
-  </ItemGroup>
-
 </Project>

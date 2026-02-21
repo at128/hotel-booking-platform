@@ -73,9 +73,9 @@ public class IdentityService(
     }
 
     public async Task<Result<UserProfileResult>> GetUserByIdAsync(
-        string userId, CancellationToken ct = default)
+        Guid userId, CancellationToken ct = default)
     {
-        var user = await userManager.FindByIdAsync(userId);
+        var user = await userManager.FindByIdAsync(userId.ToString());
         if (user is null)
             return ApplicationErrors.Auth.UserNotFound;
 
@@ -91,7 +91,7 @@ public class IdentityService(
         string userId, string firstName, string lastName,
         string? phoneNumber, CancellationToken ct = default)
     {
-        var user = await userManager.FindByIdAsync(userId);
+        var user = await userManager.FindByIdAsync(userId.ToString());
         if (user is null)
             return ApplicationErrors.Auth.UserNotFound;
 

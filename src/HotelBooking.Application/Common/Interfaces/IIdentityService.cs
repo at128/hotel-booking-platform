@@ -14,7 +14,7 @@ public interface IIdentityService
         string email, string password, CancellationToken ct = default);
 
     Task<Result<UserProfileResult>> GetUserByIdAsync(
-        string userId, CancellationToken ct = default);
+        Guid userId, CancellationToken ct = default);
 
     Task<Result<UserProfileResult>> UpdateUserAsync(
         string userId, string firstName, string lastName,
