@@ -1,6 +1,8 @@
 using HotelBooking.Api;
 using HotelBooking.Application;
 using HotelBooking.Infrastructure;
+using HotelBooking.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -17,6 +19,13 @@ builder.Services.AddHealthChecks()
         name: "database", timeout: TimeSpan.FromSeconds(3));
 
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    await context.Database.MigrateAsync();
+    await DataSeeder.SeedAsync(app.Services);
+}
 
 app.UseCoreMiddlewares();
 app.MapControllers();
