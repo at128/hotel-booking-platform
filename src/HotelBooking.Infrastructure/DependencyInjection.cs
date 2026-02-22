@@ -23,7 +23,6 @@ public static class DependencyInjection
         services.AddSingleton(TimeProvider.System);
 
 
-        services.Configure<BookingSettings>(configuration.GetSection("BookingSettings"));
         services.Configure<JwtSettings>(configuration.GetSection("JWT"));
 
 
