@@ -41,8 +41,10 @@ public sealed class CheckoutHoldConfiguration : IEntityTypeConfiguration<Checkou
         builder.HasOne(ch => ch.HotelRoomType)
             .WithMany()
             .HasForeignKey(ch => new { ch.HotelRoomTypeId, ch.HotelId })
+            .HasPrincipalKey(hrt => new { hrt.Id, hrt.HotelId })
             .OnDelete(DeleteBehavior.Restrict);
 
+        builder.HasIndex(ch => new { ch.HotelId, ch.IsReleased, ch.ExpiresAtUtc });
         builder.HasIndex(ch => new { ch.HotelId, ch.ExpiresAtUtc, ch.IsReleased });
         builder.HasIndex(ch => new { ch.HotelId, ch.HotelRoomTypeId, ch.CheckIn, ch.CheckOut });
     }
