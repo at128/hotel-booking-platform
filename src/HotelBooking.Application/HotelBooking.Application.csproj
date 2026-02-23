@@ -15,9 +15,14 @@
     <PackageReference Include="FluentValidation" />
     <PackageReference Include="FluentValidation.DependencyInjectionExtensions" />
     <PackageReference Include="MediatR" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
     <PackageReference Include="Microsoft.Extensions.Caching.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.Caching.Memory" />
     <PackageReference Include="Microsoft.Extensions.Identity.Core" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Features\Home\Commands\" />
   </ItemGroup>
 
 </Project>
