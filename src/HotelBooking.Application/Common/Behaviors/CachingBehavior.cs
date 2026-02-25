@@ -1,34 +1,44 @@
 ﻿using HotelBooking.Application.Common.Interfaces;
 using HotelBooking.Domain.Common.Results;
 using MediatR;
-using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Caching.Hybrid;
 using Microsoft.Extensions.Logging;
 
 namespace HotelBooking.Application.Common.Behaviors;
 
 public class CachingBehavior<TRequest, TResponse>(
-    IMemoryCache cache,
+    HybridCache cache,
     ILogger<CachingBehavior<TRequest, TResponse>> logger)
     : IPipelineBehavior<TRequest, TResponse>
     where TRequest : ICachedQuery
 {
     public async Task<TResponse> Handle(
-        TRequest request, RequestHandlerDelegate<TResponse> next, CancellationToken ct)
+        TRequest request,
+        RequestHandlerDelegate<TResponse> next,
+        CancellationToken ct)
     {
-        if (cache.TryGetValue(request.CacheKey, out TResponse? cached))
-        {
-            logger.LogDebug("Cache hit: {CacheKey}", request.CacheKey);
-            return cached!;
-        }
+        return await cache.GetOrCreateAsync(
+            key: request.CacheKey,
+            factory: async cancel =>
+            {
+                var response = await next();
 
-        var response = await next();
+                if (response is IResult result && !result.IsSuccess)
+                {
+                    logger.LogDebug("Cache skip (failed result): {CacheKey}", request.CacheKey);
+                }
+                else
+                {
+                    logger.LogDebug("Cache set: {CacheKey} ({Expiration})", request.CacheKey, request.Expiration);
+                }
 
-        if (response is IResult result && result.IsSuccess)
-        {
-            cache.Set(request.CacheKey, response, request.Expiration);
-            logger.LogDebug("Cache set: {CacheKey} ({Expiration})", request.CacheKey, request.Expiration);
-        }
-
-        return response;
+                return response;
+            },
+            options: new HybridCacheEntryOptions
+            {
+                Expiration = request.Expiration
+            },
+            tags: request.Tags,
+            cancellationToken: ct);
     }
 }

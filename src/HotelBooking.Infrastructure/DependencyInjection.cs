@@ -37,6 +37,8 @@ public static class DependencyInjection
         services.AddScoped<ITokenProvider, TokenProvider>();
         services.AddScoped<IIdentityService, IdentityService>();
 
+        services.AddHybridCache();
+
         return services;
     }
 
