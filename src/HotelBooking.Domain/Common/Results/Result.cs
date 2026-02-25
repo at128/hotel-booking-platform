@@ -11,7 +11,7 @@ public static class Result
     public static Updated Updated => default;
 }
 
-public sealed class Result<TValue> : IResult<TValue>
+public sealed class Result<TValue> : IResult<TValue>, IValidationFailureFactory<Result<TValue>>
 {
     private readonly TValue? _value = default;
 
@@ -52,11 +52,12 @@ public sealed class Result<TValue> : IResult<TValue>
     {
         if (errors is null || errors.Count == 0)
         {
-            throw new ArgumentException("Cannot create an ErrorOr<TValue> from an empty collection of errors. Provide at least one error.", nameof(errors));
+            throw new ArgumentException(
+                "Cannot create an ErrorOr<TValue> from an empty collection of errors. Provide at least one error.",
+                nameof(errors));
         }
 
         _errors = errors;
-
         IsSuccess = false;
     }
 
@@ -68,8 +69,17 @@ public sealed class Result<TValue> : IResult<TValue>
         }
 
         _value = value;
-
         IsSuccess = true;
+    }
+
+    public static Result<TValue> FromValidationErrors(IReadOnlyCollection<Error> errors)
+    {
+        ArgumentNullException.ThrowIfNull(errors);
+
+        if (errors.Count == 0)
+            throw new ArgumentException("Provide at least one validation error.", nameof(errors));
+
+        return new Result<TValue>(errors as List<Error> ?? errors.ToList());
     }
 
     public bool IsError => !IsSuccess;
