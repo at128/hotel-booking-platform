@@ -1,4 +1,5 @@
-﻿using MediatR;
+﻿using HotelBooking.Application.Common.Interfaces;
+using MediatR;
 using Microsoft.Extensions.Logging;
 
 namespace HotelBooking.Application.Common.Behaviors;
@@ -10,10 +11,18 @@ public class UnhandledExceptionBehavior<TRequest, TResponse>(
     public async Task<TResponse> Handle(
         TRequest request, RequestHandlerDelegate<TResponse> next, CancellationToken ct)
     {
-        try { return await next(); }
+        try
+        {
+            return await next();
+        }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Unhandled exception for {Name}: {@Request}", typeof(TRequest).Name, request);
+            var requestData = request is ISensitiveRequest
+                ? "[REDACTED - sensitive request]"
+                : (object)request;
+
+            logger.LogError(ex, "Unhandled exception for {Name}: {@Request}",
+                typeof(TRequest).Name, requestData);
             throw;
         }
     }

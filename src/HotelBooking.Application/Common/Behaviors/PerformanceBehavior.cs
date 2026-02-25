@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using HotelBooking.Application.Common.Interfaces;
 using MediatR;
 using Microsoft.Extensions.Logging;
 
@@ -16,8 +17,12 @@ public class PerformanceBehavior<TRequest, TResponse>(ILogger<PerformanceBehavio
 
         if (sw.ElapsedMilliseconds > 500)
         {
+            var requestData = request is ISensitiveRequest
+                ? "[REDACTED - sensitive request]"
+                : (object)request;
+
             logger.LogWarning("Long running request: {Name} ({Elapsed}ms) {@Request}",
-                typeof(TRequest).Name, sw.ElapsedMilliseconds, request);
+                typeof(TRequest).Name, sw.ElapsedMilliseconds, requestData);
         }
 
         return response;
