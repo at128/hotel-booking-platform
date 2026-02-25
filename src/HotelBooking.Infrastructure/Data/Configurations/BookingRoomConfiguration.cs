@@ -32,11 +32,13 @@ public sealed class BookingRoomConfiguration : IEntityTypeConfiguration<BookingR
         builder.HasOne(br => br.Room)
             .WithMany()
             .HasForeignKey(br => new { br.RoomId, br.HotelId })
+            .HasPrincipalKey(r => new { r.Id, r.HotelId })
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasOne(br => br.HotelRoomType)
             .WithMany()
             .HasForeignKey(br => new { br.HotelRoomTypeId, br.HotelId })
+            .HasPrincipalKey(hr => new { hr.Id, hr.HotelId })
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasIndex(br => new { br.BookingId, br.HotelRoomTypeId });
