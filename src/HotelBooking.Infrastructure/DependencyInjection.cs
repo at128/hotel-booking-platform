@@ -21,7 +21,16 @@ public static class DependencyInjection
     {
         services.AddSingleton(TimeProvider.System);
 
-        services.Configure<JwtSettings>(configuration.GetSection("JWT"));
+        var jwtSection = configuration.GetSection("JWT");
+        var secret = jwtSection["Secret"];
+
+        if (string.IsNullOrWhiteSpace(secret) || secret.Length < 32)
+        {
+            throw new InvalidOperationException(
+                "JWT:Secret must be configured and at least 32 characters.");
+        }
+
+        services.Configure<JwtSettings>(jwtSection);
 
         services.AddScoped<ISaveChangesInterceptor, AuditableEntityInterceptor>();
 
@@ -52,8 +61,6 @@ public static class DependencyInjection
         .AddEntityFrameworkStores<AppDbContext>()
         .AddDefaultTokenProviders();
 
-        var jwtSection = configuration.GetSection("JWT");
-
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>
             {
@@ -67,7 +74,7 @@ public static class DependencyInjection
                     ValidIssuer = jwtSection["Issuer"],
                     ValidAudience = jwtSection["Audience"],
                     IssuerSigningKey = new SymmetricSecurityKey(
-                        Encoding.UTF8.GetBytes(jwtSection["Secret"]!)),
+                        Encoding.UTF8.GetBytes(secret)),
 
                     ClockSkew = TimeSpan.Zero
                 };
