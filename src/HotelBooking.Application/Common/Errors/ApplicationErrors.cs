@@ -1,4 +1,5 @@
 ﻿
+using HotelBooking.Application.Common.Interfaces;
 using HotelBooking.Domain.Common.Results;
 
 namespace HotelBooking.Application.Common.Errors;
@@ -20,5 +21,8 @@ public static class ApplicationErrors
 
         public static readonly Error UpdateFailed =
             Error.Failure("Auth.UpdateFailed", "Profile update failed.");
+
+        public static readonly Error AccountLocked =
+            Error.Failure("Auth.AccountLocked", "Account is temporarily locked. Please try again later");
     }
 }

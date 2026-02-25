@@ -51,15 +51,23 @@ public class IdentityService(
     }
 
     public async Task<Result<UserAuthResult>> ValidateCredentialsAsync(
-        string email, string password, CancellationToken ct = default)
+    string email, string password, CancellationToken ct = default)
     {
         var user = await userManager.FindByEmailAsync(email);
         if (user is null)
             return ApplicationErrors.Auth.InvalidCredentials;
 
+        if (await userManager.IsLockedOutAsync(user))
+            return ApplicationErrors.Auth.AccountLocked;
+
         var isValid = await userManager.CheckPasswordAsync(user, password);
         if (!isValid)
+        {
+            await userManager.AccessFailedAsync(user);
             return ApplicationErrors.Auth.InvalidCredentials;
+        }
+
+        await userManager.ResetAccessFailedCountAsync(user);
 
         var roles = await userManager.GetRolesAsync(user);
 

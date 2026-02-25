@@ -56,6 +56,9 @@ public static class DependencyInjection
             options.Password.RequireNonAlphanumeric = true;
             options.Password.RequiredLength = 8;
             options.User.RequireUniqueEmail = true;
+            options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
+            options.Lockout.MaxFailedAccessAttempts = 5;
+            options.Lockout.AllowedForNewUsers = true;
         })
         .AddRoles<IdentityRole<Guid>>()
         .AddEntityFrameworkStores<AppDbContext>()
