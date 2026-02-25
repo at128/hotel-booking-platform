@@ -1,21 +1,44 @@
-﻿using HotelBooking.Api.Infrastructure;
+﻿using System.Threading.RateLimiting;
+using HotelBooking.Api.Infrastructure;
 using HotelBooking.Api.Services;
 using HotelBooking.Application.Common.Interfaces;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Configuration;
 using Serilog;
-using System.Threading.RateLimiting;
 
 namespace HotelBooking.Api;
 
 public static class DependencyInjection
 {
-    public static IServiceCollection AddPresentation(this IServiceCollection services,IConfiguration configuration)
+    private const string FrontendCorsPolicy = "Frontend";
+    private const string AuthRateLimitPolicy = "auth";
+
+    public static IServiceCollection AddPresentation(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        services.AddPresentationCore();
+        services.AddApiVersioningServices();
+        services.AddSwaggerDocumentation();
+        services.AddRateLimitingPolicies();
+        services.AddCorsPolicy(configuration);
+
+        return services;
+    }
+
+    public static WebApplication UseCoreMiddlewares(this WebApplication app)
+    {
+        app.UseDiagnosticsAndErrorHandling();
+        app.UseSwaggerAndHsts();
+        app.UseHttpSecurityPipeline();
+
+        return app;
+    }
+
+    private static IServiceCollection AddPresentationCore(this IServiceCollection services)
     {
         services.AddControllers();
-
         services.AddEndpointsApiExplorer();
-        services.AddSwagger();
 
         services.AddHttpContextAccessor();
         services.AddScoped<IUser, CurrentUser>();
@@ -25,6 +48,11 @@ public static class DependencyInjection
 
         services.AddMemoryCache();
 
+        return services;
+    }
+
+    private static IServiceCollection AddApiVersioningServices(this IServiceCollection services)
+    {
         services.AddApiVersioning(options =>
         {
             options.DefaultApiVersion = new Asp.Versioning.ApiVersion(1, 0);
@@ -38,13 +66,18 @@ public static class DependencyInjection
             options.SubstituteApiVersionInUrl = true;
         });
 
+        return services;
+    }
+
+    private static IServiceCollection AddRateLimitingPolicies(this IServiceCollection services)
+    {
         services.AddRateLimiter(options =>
         {
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
             options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
             {
-                var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+                var ip = GetClientIp(httpContext);
 
                 return RateLimitPartition.GetTokenBucketLimiter(ip, _ => new TokenBucketRateLimiterOptions
                 {
@@ -57,9 +90,9 @@ public static class DependencyInjection
                 });
             });
 
-            options.AddPolicy("auth", httpContext =>
+            options.AddPolicy(AuthRateLimitPolicy, httpContext =>
             {
-                var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+                var ip = GetClientIp(httpContext);
 
                 return RateLimitPartition.GetFixedWindowLimiter(ip, _ => new FixedWindowRateLimiterOptions
                 {
@@ -72,9 +105,16 @@ public static class DependencyInjection
             });
         });
 
+        return services;
+    }
+
+    private static IServiceCollection AddCorsPolicy(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
         services.AddCors(options =>
         {
-            options.AddPolicy("Frontend", policy =>
+            options.AddPolicy(FrontendCorsPolicy, policy =>
             {
                 var allowedOrigins = configuration
                     .GetSection("Cors:AllowedOrigins")
@@ -92,7 +132,10 @@ public static class DependencyInjection
         return services;
     }
 
-    public static IServiceCollection AddSwagger(this IServiceCollection services)
+    private static string GetClientIp(HttpContext httpContext) =>
+        httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
+    private static IServiceCollection AddSwaggerDocumentation(this IServiceCollection services)
     {
         services.AddSwaggerGen(c =>
         {
@@ -130,6 +173,7 @@ public static class DependencyInjection
 
             var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
             var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+
             if (File.Exists(xmlPath))
                 c.IncludeXmlComments(xmlPath);
         });
@@ -137,7 +181,7 @@ public static class DependencyInjection
         return services;
     }
 
-    public static WebApplication UseCoreMiddlewares(this WebApplication app)
+    private static WebApplication UseDiagnosticsAndErrorHandling(this WebApplication app)
     {
         app.UseMiddleware<CorrelationIdMiddleware>();
         app.UseMiddleware<SecurityHeadersMiddleware>();
@@ -145,6 +189,11 @@ public static class DependencyInjection
         app.UseSerilogRequestLogging();
         app.UseExceptionHandler();
 
+        return app;
+    }
+
+    private static WebApplication UseSwaggerAndHsts(this WebApplication app)
+    {
         var swaggerEnabled = app.Configuration.GetValue<bool>("Swagger:Enabled");
 
         if (app.Environment.IsDevelopment() || swaggerEnabled)
@@ -158,8 +207,13 @@ public static class DependencyInjection
             app.UseHsts();
         }
 
+        return app;
+    }
+
+    private static WebApplication UseHttpSecurityPipeline(this WebApplication app)
+    {
         app.UseHttpsRedirection();
-        app.UseCors("Frontend");
+        app.UseCors(FrontendCorsPolicy);
         app.UseRateLimiter();
 
         app.UseAuthentication();
