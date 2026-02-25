@@ -1,15 +1,16 @@
-﻿using System.Threading.RateLimiting;
-using HotelBooking.Api.Infrastructure;
+﻿using HotelBooking.Api.Infrastructure;
 using HotelBooking.Api.Services;
 using HotelBooking.Application.Common.Interfaces;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Configuration;
 using Serilog;
+using System.Threading.RateLimiting;
 
 namespace HotelBooking.Api;
 
 public static class DependencyInjection
 {
-    public static IServiceCollection AddPresentation(this IServiceCollection services)
+    public static IServiceCollection AddPresentation(this IServiceCollection services,IConfiguration configuration)
     {
         services.AddControllers();
 
@@ -68,6 +69,23 @@ public static class DependencyInjection
                     QueueLimit = 0,
                     QueueProcessingOrder = QueueProcessingOrder.OldestFirst
                 });
+            });
+        });
+
+        services.AddCors(options =>
+        {
+            options.AddPolicy("Frontend", policy =>
+            {
+                var allowedOrigins = configuration
+                    .GetSection("Cors:AllowedOrigins")
+                    .Get<string[]>() ?? [];
+
+                if (allowedOrigins.Length > 0)
+                {
+                    policy.WithOrigins(allowedOrigins)
+                          .AllowAnyHeader()
+                          .AllowAnyMethod();
+                }
             });
         });
 
@@ -138,7 +156,7 @@ public static class DependencyInjection
         }
 
         app.UseHttpsRedirection();
-
+        app.UseCors("Frontend");
         app.UseRateLimiter();
 
         app.UseAuthentication();

@@ -11,7 +11,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Host.UseSerilog((ctx, cfg) => cfg.ReadFrom.Configuration(ctx.Configuration));
 
 builder.Services
-    .AddPresentation()
+    .AddPresentation(builder.Configuration)
     .AddApplication()
     .AddInfrastructure(builder.Configuration);
 
