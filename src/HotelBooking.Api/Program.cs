@@ -2,6 +2,7 @@ using HotelBooking.Api;
 using HotelBooking.Application;
 using HotelBooking.Infrastructure;
 using HotelBooking.Infrastructure.Data;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 
@@ -29,7 +30,19 @@ using (var scope = app.Services.CreateScope())
 
 app.UseCoreMiddlewares();
 app.MapControllers();
-app.MapHealthChecks("/api/v1/health");
+
+app.MapHealthChecks("/api/v1/health/live", new HealthCheckOptions
+{
+    Predicate = _ => false,
+    AllowCachingResponses = false
+});
+
+app.MapHealthChecks("/api/v1/health/ready", new HealthCheckOptions
+{
+    Predicate = _ => true,
+    AllowCachingResponses = false
+})
+.RequireAuthorization();
 
 Log.Information("Starting Hotel Booking API...");
 app.Run();
