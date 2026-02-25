@@ -17,18 +17,18 @@ public class IdentityService(
     }
 
     public async Task<Result<UserAuthResult>> RegisterUserAsync(
-        string email, string password, string firstName, string lastName,
-        string? phoneNumber, CancellationToken ct = default)
+    string email,
+    string password,
+    string firstName,
+    string lastName,
+    string? phoneNumber,
+    CancellationToken ct = default)
     {
-        var existing = await userManager.FindByEmailAsync(email);
-        if (existing is not null)
-            return ApplicationErrors.Auth.EmailAlreadyRegistered;
-
         var user = new ApplicationUser
         {
             Id = Guid.CreateVersion7(),
             UserName = email,
-            Email = email,
+            Email = email.Trim(),
             FirstName = firstName,
             LastName = lastName,
             PhoneNumber = phoneNumber,
@@ -36,16 +36,41 @@ public class IdentityService(
         };
 
         var identityResult = await userManager.CreateAsync(user, password);
+
         if (!identityResult.Succeeded)
         {
+            if (identityResult.Errors.Any(e =>
+                string.Equals(e.Code, "DuplicateEmail", StringComparison.OrdinalIgnoreCase)))
+            {
+                return ApplicationErrors.Auth.EmailAlreadyRegistered;
+            }
+
+            if (identityResult.Errors.Any(e =>
+                string.Equals(e.Code, "DuplicateUserName", StringComparison.OrdinalIgnoreCase)))
+            {
+                return ApplicationErrors.Auth.EmailAlreadyRegistered;
+            }
+
             var errors = string.Join(", ", identityResult.Errors.Select(e => e.Description));
             return ApplicationErrors.Auth.RegistrationFailed(errors);
         }
 
-        await userManager.AddToRoleAsync(user, HotelBookingConstants.Roles.User);
+        var roleResult = await userManager.AddToRoleAsync(user, HotelBookingConstants.Roles.User);
+
+        if (!roleResult.Succeeded)
+        {
+            await userManager.DeleteAsync(user);
+
+            var roleErrors = string.Join(", ", roleResult.Errors.Select(e => e.Description));
+            return ApplicationErrors.Auth.RegistrationFailed(
+                $"User created but role assignment failed: {roleErrors}");
+        }
 
         return new UserAuthResult(
-            user.Id, user.Email!, user.FirstName, user.LastName,
+            user.Id,
+            user.Email!,
+            user.FirstName,
+            user.LastName,
             [HotelBookingConstants.Roles.User],
             user.CreatedAtUtc);
     }
