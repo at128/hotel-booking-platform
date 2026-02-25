@@ -145,12 +145,15 @@ public static class DependencyInjection
         app.UseSerilogRequestLogging();
         app.UseExceptionHandler();
 
-        if (app.Environment.IsDevelopment())
+        var swaggerEnabled = app.Configuration.GetValue<bool>("Swagger:Enabled");
+
+        if (app.Environment.IsDevelopment() || swaggerEnabled)
         {
             app.UseSwagger();
             app.UseSwaggerUI();
         }
-        else
+
+        if (!app.Environment.IsDevelopment())
         {
             app.UseHsts();
         }
