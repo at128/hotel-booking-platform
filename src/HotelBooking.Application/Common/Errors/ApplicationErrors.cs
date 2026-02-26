@@ -1,5 +1,6 @@
 ﻿
 using HotelBooking.Application.Common.Interfaces;
+using HotelBooking.Contracts.Auth;
 using HotelBooking.Domain.Common.Results;
 
 namespace HotelBooking.Application.Common.Errors;
@@ -24,5 +25,11 @@ public static class ApplicationErrors
 
         public static readonly Error AccountLocked =
             Error.Failure("Auth.AccountLocked", "Account is temporarily locked. Please try again later");
+
+        public static readonly Error InvalidRefreshToken =
+            Error.Failure("Auth.InvalidRefreshToken", "Invalid Refresh Token");
+
+        public static readonly Error RefreshTokenReuse =
+            Error.Failure("Auth.RefreshTokenReuse", "Refresh Token Reuse");
     }
 }

@@ -13,5 +13,7 @@ public interface ITokenProvider
         string? existingFamily = null,
         string? deviceInfo = null,
         CancellationToken ct = default);
+    string GenerateRefreshToken();
+    string HashToken(string token);
     ClaimsPrincipal? GetPrincipalFromExpiredToken(string token);
 }
