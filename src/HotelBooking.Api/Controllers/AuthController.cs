@@ -2,6 +2,7 @@
 using HotelBooking.Application.Features.Auth.Commands.Login;
 using HotelBooking.Application.Features.Auth.Commands.RefreshToken;
 using HotelBooking.Application.Features.Auth.Commands.Register;
+using HotelBooking.Application.Features.Auth.Commands.LogoutCurrentSession;
 using HotelBooking.Application.Features.Auth.Commands.UpdateProfile;
 using HotelBooking.Application.Features.Auth.Queries.GetProfile;
 using HotelBooking.Contracts.Auth;
@@ -91,5 +92,42 @@ public sealed class AuthController(ISender sender) : ApiController
             ct);
 
         return result.Match(Ok, Problem);
+    }
+
+
+    [HttpPost("logout")]
+    [Authorize]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+    public async Task<IActionResult> Logout(
+    [FromBody] RevokeTokenRequest request,
+    CancellationToken ct)
+    {
+        var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (!Guid.TryParse(userIdClaim, out var userId))
+            return Problem(title: "Unauthorized", statusCode: StatusCodes.Status401Unauthorized);
+
+        var result = await sender.Send(
+            new LogoutCurrentSessionCommand(
+                userId,
+                request.RefreshToken),
+            ct);
+
+        return result.Match(_ => NoContent(), Problem);
+    }
+
+    [HttpPost("logout-all")]
+    [Authorize]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+    public async Task<IActionResult> LogoutAllSessions(CancellationToken ct)
+    {
+        var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (!Guid.TryParse(userIdClaim, out var userId))
+            return Problem(title: "Unauthorized", statusCode: StatusCodes.Status401Unauthorized);
+
+        var result = await sender.Send(
+            new HotelBooking.Application.Features.Auth.Commands.LogoutAllSessions.LogoutAllSessionsCommand(userId),
+            ct);
+
+        return result.Match(_ => NoContent(), Problem);
     }
 }

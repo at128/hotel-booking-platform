@@ -1,7 +1,7 @@
 ﻿using HotelBooking.Domain.Common.Results;
 using MediatR;
 
-namespace HotelBooking.Application.Features.Auth.Commands.RevokeToken;
+namespace HotelBooking.Application.Features.Auth.Commands.LogoutCurrentSession;
 
 public sealed record LogoutCurrentSessionCommand(Guid UserId, string RefreshToken)
     : IRequest<Result<Success>>;

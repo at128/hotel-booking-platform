@@ -2,7 +2,7 @@
 using HotelBooking.Domain.Common.Results;
 using MediatR;
 
-namespace HotelBooking.Application.Features.Auth.Commands.RevokeToken;
+namespace HotelBooking.Application.Features.Auth.Commands.LogoutCurrentSession;
 
 public sealed class LogoutCurrentSessionCommandHandler(
     ITokenProvider tokenProvider,
