@@ -1,5 +1,6 @@
 ﻿using HotelBooking.Application.Common.Interfaces;
 using HotelBooking.Application.Common.Models;
+using HotelBooking.Application.Common.Settings;
 using HotelBooking.Contracts.Auth;
 using HotelBooking.Domain.Common.Results;
 using HotelBooking.Infrastructure.Settings;
@@ -11,11 +12,16 @@ using System.Text;
 
 namespace HotelBooking.Infrastructure.Identity;
 
-public class TokenProvider(IOptions<JwtSettings> jwtSettings) : ITokenProvider
+public class TokenProvider(
+    IOptions<JwtSettings> jwtSettings,
+    IRefreshTokenRepository refreshTokenRepository,
+    IOptions<RefreshTokenSettings> refreshTokenOptions) : ITokenProvider
 {
     private readonly JwtSettings _jwt = jwtSettings.Value;
+    private readonly IRefreshTokenRepository _refreshTokenRepository = refreshTokenRepository;
+    private readonly RefreshTokenSettings _refreshTokenOptions = refreshTokenOptions.Value;
 
-    public Task<Result<TokenResponse>> GenerateJwtTokenAsync(
+    public async Task<Result<TokenResponse>> GenerateJwtTokenAsync(
         AppUserDto user, CancellationToken ct = default)
     {
         var expiresAt = DateTimeOffset.UtcNow.AddHours(_jwt.ExpiryHours);
@@ -46,7 +52,40 @@ public class TokenProvider(IOptions<JwtSettings> jwtSettings) : ITokenProvider
                 AccessToken: new JwtSecurityTokenHandler().WriteToken(token),
                 ExpiresOnUtc: expiresAt.UtcDateTime);
 
-        return Task.FromResult<Result<TokenResponse>>(response);
+        return response;
+    }
+
+    public async Task<Result<TokenResponse>> GenerateTokenPairAsync(AppUserDto user, string? existingFamily = null, string? deviceInfo = null, CancellationToken ct = default)
+    {
+        var accessResult = await GenerateJwtTokenAsync(user, ct);
+
+        if (accessResult.IsError)
+            return accessResult.TopError;
+
+        var rawRefreshToken = GenerateRefreshToken();
+        var tokenHash = HashToken(rawRefreshToken);
+        var family = existingFamily ?? Guid.NewGuid().ToString("N");
+
+        var refreshTokenData = new RefreshTokenData(
+            Id: Guid.CreateVersion7(),
+            UserId: user.UserId,
+            TokenHash: tokenHash,
+            Family: family,
+            IsActive: true,
+            IsUsed: false,
+            IsRevoked: false,
+            ExpiresAt: DateTimeOffset.UtcNow.AddDays(_refreshTokenOptions.ExpiryDays),
+            DeviceInfo: deviceInfo);
+
+        await refreshTokenRepository.AddAsync(refreshTokenData, ct);
+        await refreshTokenRepository.SaveChangesAsync(ct);
+
+        var access = accessResult.Value;
+
+        return new TokenResponse(
+            AccessToken: access.AccessToken,
+            ExpiresOnUtc: access.ExpiresOnUtc,
+            RefreshToken: rawRefreshToken);
     }
 
     public ClaimsPrincipal? GetPrincipalFromExpiredToken(string token)
@@ -81,4 +120,15 @@ public class TokenProvider(IOptions<JwtSettings> jwtSettings) : ITokenProvider
             return null;
         }
     }
+    public string GenerateRefreshToken()
+    {
+        return RefreshTokenCrypto.GenerateRawToken(_refreshTokenOptions.TokenBytes);
+    }
+
+    public string HashToken(string token)
+    {
+        return RefreshTokenCrypto.HashToken(token);
+    }
+
+
 }
