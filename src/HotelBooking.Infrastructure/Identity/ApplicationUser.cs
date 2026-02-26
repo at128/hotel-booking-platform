@@ -1,5 +1,4 @@
-﻿// src/HotelBooking.Infrastructure/Identity/ApplicationUser.cs
-using Microsoft.AspNetCore.Identity;
+﻿using Microsoft.AspNetCore.Identity;
 
 namespace HotelBooking.Infrastructure.Identity;
 

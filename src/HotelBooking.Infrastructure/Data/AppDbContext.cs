@@ -30,6 +30,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, IMediator medi
     public DbSet<Booking> Bookings => Set<Booking>();
     public DbSet<CheckoutHold> CheckoutHolds => Set<CheckoutHold>();
     public DbSet<BookingRoom> BookingRooms => Set<BookingRoom>();
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+
     public override async Task<int> SaveChangesAsync(CancellationToken ct = default)
     {
         await DispatchDomainEventsAsync(ct);
