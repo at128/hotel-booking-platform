@@ -16,6 +16,7 @@ public interface IRefreshTokenRepository
 
     Task RemoveExpiredAsync(CancellationToken ct = default);
 
+    Task RevokeAllForUserAsync(Guid userId, CancellationToken ct = default);
     Task SaveChangesAsync(CancellationToken ct = default);
 }
 

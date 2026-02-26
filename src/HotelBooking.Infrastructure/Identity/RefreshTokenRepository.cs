@@ -65,6 +65,14 @@ public sealed class RefreshTokenRepository(AppDbContext context) : IRefreshToken
             .Where(t => t.ExpiresAt < cutoff)
             .ExecuteDeleteAsync(ct);
     }
+    public async Task RevokeAllForUserAsync(Guid userId, CancellationToken ct = default)
+    {
+        await context.RefreshTokens
+            .Where(t => t.UserId == userId && !t.IsRevoked)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(t => t.IsRevoked, true)
+                .SetProperty(t => t.RevokedAt, DateTimeOffset.UtcNow), ct);
+    }
 
     public Task SaveChangesAsync(CancellationToken ct = default)
         => context.SaveChangesAsync(ct);

@@ -1,5 +1,6 @@
 ﻿using Asp.Versioning;
 using HotelBooking.Application.Features.Auth.Commands.Login;
+using HotelBooking.Application.Features.Auth.Commands.RefreshToken;
 using HotelBooking.Application.Features.Auth.Commands.Register;
 using HotelBooking.Application.Features.Auth.Commands.UpdateProfile;
 using HotelBooking.Application.Features.Auth.Queries.GetProfile;
@@ -75,6 +76,19 @@ public sealed class AuthController(ISender sender) : ApiController
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
         var result = await sender.Send(new UpdateProfileCommand(
             userId, request.FirstName, request.LastName, request.PhoneNumber), ct);
+
+        return result.Match(Ok, Problem);
+    }
+
+    [HttpPost("refresh")]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+    public async Task<IActionResult> Refresh(
+    [FromBody] RefreshTokenRequest request,
+    CancellationToken ct)
+    {
+        var result = await sender.Send(
+            new RefreshTokenCommand(request.RefreshToken),
+            ct);
 
         return result.Match(Ok, Problem);
     }
