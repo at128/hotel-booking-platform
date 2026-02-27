@@ -2,5 +2,4 @@
 
 public record TokenResponse(
     string AccessToken,
-    DateTime ExpiresOnUtc,
-    string? RefreshToken = null);
+    DateTime ExpiresOnUtc);

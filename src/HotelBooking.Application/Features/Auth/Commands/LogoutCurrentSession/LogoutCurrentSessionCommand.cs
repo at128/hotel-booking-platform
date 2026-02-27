@@ -3,5 +3,5 @@ using MediatR;
 
 namespace HotelBooking.Application.Features.Auth.Commands.LogoutCurrentSession;
 
-public sealed record LogoutCurrentSessionCommand(Guid UserId, string RefreshToken)
+public sealed record LogoutCurrentSessionCommand(Guid UserId)
     : IRequest<Result<Success>>;

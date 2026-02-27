@@ -7,13 +7,10 @@ namespace HotelBooking.Application.Common.Interfaces;
 
 public interface ITokenProvider
 {
-    Task<Result<TokenResponse>> GenerateJwtTokenAsync(AppUserDto user, CancellationToken ct = default);
-    Task<Result<TokenResponse>> GenerateTokenPairAsync(
-        AppUserDto user,
-        string? existingFamily = null,
-        string? deviceInfo = null,
-        CancellationToken ct = default);
+    Result<TokenResponse> GenerateJwtToken(AppUserDto user);
+
     string GenerateRefreshToken();
     string HashToken(string token);
+
     ClaimsPrincipal? GetPrincipalFromExpiredToken(string token);
 }

@@ -11,93 +11,78 @@ namespace HotelBooking.Application.Features.Auth.Commands.RefreshToken;
 
 public sealed class RefreshTokenCommandHandler(
     ITokenProvider tokenProvider,
-    IRefreshTokenRepository refreshTokenRepo,
+    IRefreshTokenRepository refreshTokenRepository,
     IIdentityService identityService,
-    IOptions<RefreshTokenSettings> refreshTokenOptions)
+    ICookieService cookieService,
+    IOptions<RefreshTokenSettings> rtOptions)
     : IRequestHandler<RefreshTokenCommand, Result<TokenResponse>>
 {
+    private readonly RefreshTokenSettings _rtSettings = rtOptions.Value;
+
     public async Task<Result<TokenResponse>> Handle(
-        RefreshTokenCommand cmd,
-        CancellationToken ct)
+        RefreshTokenCommand cmd, CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(cmd.RefreshToken))
-            return ApplicationErrors.Auth.InvalidRefreshToken;
+        var rawToken = cookieService.GetRefreshTokenFromCookie();
+       if (string.IsNullOrWhiteSpace(rawToken))
+             return ApplicationErrors.Auth.InvalidRefreshToken;
 
-        var incomingRaw = cmd.RefreshToken.Trim();
-        var tokenHash = tokenProvider.HashToken(incomingRaw);
-
-        var stored = await refreshTokenRepo.GetByHashAsync(tokenHash, ct);
+        var tokenHash = tokenProvider.HashToken(rawToken);
+        var stored = await refreshTokenRepository.GetByHashAsync(tokenHash, ct);
 
         if (stored is null)
             return ApplicationErrors.Auth.InvalidRefreshToken;
 
         if (stored.IsUsed)
         {
-            await refreshTokenRepo.RevokeAllFamilyAsync(stored.Family, ct);
-            await refreshTokenRepo.SaveChangesAsync(ct);
-
-            return ApplicationErrors.Auth.RefreshTokenReuse; 
-        }
-
-
-        if (!stored.IsActive)
-            return ApplicationErrors.Auth.InvalidRefreshToken;
-
-
-        var userResult = await identityService.GetUserByIdAsync(stored.UserId, ct);
-
-        if (userResult.IsError)
-            return userResult.TopError;
-
-        var user = userResult.Value;
-
-        var appUser = new AppUserDto(
-            user.Id,
-            user.Email,
-            user.FirstName,
-            user.LastName,
-            [user.Role]);
-
-        var newRawRefresh = tokenProvider.GenerateRefreshToken();
-        var newHash = tokenProvider.HashToken(newRawRefresh);
-
-        var claimed = await refreshTokenRepo.TryMarkAsUsedAsync(
-            stored.Id,
-            replacedByTokenHash: newHash,
-            nowUtc: DateTimeOffset.UtcNow,
-            ct);
-
-        if (!claimed)
-        {
-            await refreshTokenRepo.RevokeAllFamilyAsync(stored.Family, ct);
-            await refreshTokenRepo.SaveChangesAsync(ct);
-
+            await refreshTokenRepository.RevokeAllFamilyAsync(stored.Family, ct);
+            cookieService.RemoveRefreshTokenCookie();
             return ApplicationErrors.Auth.RefreshTokenReuse;
         }
 
-        var accessResult = await tokenProvider.GenerateJwtTokenAsync(appUser, ct);
+        if (!stored.IsActive)
+        {
+            cookieService.RemoveRefreshTokenCookie();
+            return ApplicationErrors.Auth.InvalidRefreshToken;
+        }
 
-        if (accessResult.IsError)
-            return accessResult.TopError;
+        var userResult = await identityService.GetUserByIdAsync(stored.UserId, ct);
+        if (userResult.IsError) return userResult.TopError;
 
-        var replacement = new RefreshTokenData(
+        var user = userResult.Value;
+        var appUser = new AppUserDto(
+            user.Id, user.Email,
+            user.FirstName, user.LastName,
+            [user.Role]);
+
+        var newTokenResult = tokenProvider.GenerateJwtToken(appUser);
+        if (newTokenResult.IsError) return newTokenResult.TopError;
+
+        var newRawRT = tokenProvider.GenerateRefreshToken();
+        var newRTHash = tokenProvider.HashToken(newRawRT);
+
+        var newRTData = new RefreshTokenData(
             Id: Guid.CreateVersion7(),
-            UserId: stored.UserId,
-            TokenHash: newHash,
-            Family: stored.Family,
+            UserId: user.Id,
+            TokenHash: newRTHash,
+            Family: stored.Family, 
             IsActive: true,
             IsUsed: false,
             IsRevoked: false,
-            ExpiresAt: DateTimeOffset.UtcNow.AddDays(refreshTokenOptions.Value.ExpiryDays)); 
+            ExpiresAt: DateTimeOffset.UtcNow.AddDays(_rtSettings.ExpiryDays));
 
-        await refreshTokenRepo.AddAsync(replacement, ct);
-        await refreshTokenRepo.SaveChangesAsync(ct);
+        await refreshTokenRepository.AddAsync(newRTData, ct);
 
-        var access = accessResult.Value;
+        bool isMarked = await refreshTokenRepository.TryMarkAsUsedAsync(stored.Id, newRTHash, DateTimeOffset.UtcNow);
 
-        return new TokenResponse(
-            AccessToken: access.AccessToken,
-            ExpiresOnUtc: access.ExpiresOnUtc,
-            RefreshToken: newRawRefresh);
+        if(!isMarked)
+        {
+            await refreshTokenRepository.RevokeAllFamilyAsync(stored.Family, ct);
+            cookieService.RemoveRefreshTokenCookie();
+            return ApplicationErrors.Auth.RefreshTokenReuse;
+        }
+
+        cookieService.SetRefreshTokenCookie(newRawRT);
+
+        return newTokenResult.Value;
     }
 }

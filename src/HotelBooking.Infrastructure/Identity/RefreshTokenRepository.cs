@@ -15,7 +15,7 @@ public sealed class RefreshTokenRepository(AppDbContext context) : IRefreshToken
         return token is null ? null : MapToData(token);
     }
 
-    public Task AddAsync(RefreshTokenData data, CancellationToken ct = default)
+    public async Task AddAsync(RefreshTokenData data, CancellationToken ct = default)
     {
         var entity = new RefreshToken(
             id: data.Id,
@@ -26,7 +26,7 @@ public sealed class RefreshTokenRepository(AppDbContext context) : IRefreshToken
             deviceInfo: data.DeviceInfo);
 
         context.RefreshTokens.Add(entity);
-        return Task.CompletedTask;
+        await context.SaveChangesAsync(ct);
     }
 
     public async Task RevokeAllFamilyAsync(string family, CancellationToken ct = default)

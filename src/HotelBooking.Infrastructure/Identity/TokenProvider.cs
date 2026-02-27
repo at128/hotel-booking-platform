@@ -1,6 +1,6 @@
-﻿using HotelBooking.Application.Common.Interfaces;
+﻿// src/HotelBooking.Infrastructure/Identity/TokenProvider.cs
+using HotelBooking.Application.Common.Interfaces;
 using HotelBooking.Application.Common.Models;
-using HotelBooking.Application.Common.Settings;
 using HotelBooking.Contracts.Auth;
 using HotelBooking.Domain.Common.Results;
 using HotelBooking.Infrastructure.Settings;
@@ -8,21 +8,17 @@ using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 
 namespace HotelBooking.Infrastructure.Identity;
 
-public class TokenProvider(
-    IOptions<JwtSettings> jwtSettings,
-    IRefreshTokenRepository refreshTokenRepository,
-    IOptions<RefreshTokenSettings> refreshTokenOptions) : ITokenProvider
+public sealed class TokenProvider(
+    IOptions<JwtSettings> jwtSettings) : ITokenProvider
 {
     private readonly JwtSettings _jwt = jwtSettings.Value;
-    private readonly IRefreshTokenRepository _refreshTokenRepository = refreshTokenRepository;
-    private readonly RefreshTokenSettings _refreshTokenOptions = refreshTokenOptions.Value;
 
-    public async Task<Result<TokenResponse>> GenerateJwtTokenAsync(
-        AppUserDto user, CancellationToken ct = default)
+    public Result<TokenResponse> GenerateJwtToken(AppUserDto user)
     {
         var expiresAt = DateTimeOffset.UtcNow.AddHours(_jwt.ExpiryHours);
 
@@ -48,44 +44,22 @@ public class TokenProvider(
             expires: expiresAt.UtcDateTime,
             signingCredentials: credentials);
 
-        var response = new TokenResponse(
-                AccessToken: new JwtSecurityTokenHandler().WriteToken(token),
-                ExpiresOnUtc: expiresAt.UtcDateTime);
-
-        return response;
+        return new TokenResponse(
+            AccessToken: new JwtSecurityTokenHandler().WriteToken(token),
+            ExpiresOnUtc: expiresAt.UtcDateTime);
     }
 
-    public async Task<Result<TokenResponse>> GenerateTokenPairAsync(AppUserDto user, string? existingFamily = null, string? deviceInfo = null, CancellationToken ct = default)
+    public string GenerateRefreshToken()
     {
-        var accessResult = await GenerateJwtTokenAsync(user, ct);
+        var randomBytes = new byte[64];
+        RandomNumberGenerator.Fill(randomBytes);
+        return Convert.ToBase64String(randomBytes);
+    }
 
-        if (accessResult.IsError)
-            return accessResult.TopError;
-
-        var rawRefreshToken = GenerateRefreshToken();
-        var tokenHash = HashToken(rawRefreshToken);
-        var family = existingFamily ?? Guid.NewGuid().ToString("N");
-
-        var refreshTokenData = new RefreshTokenData(
-            Id: Guid.CreateVersion7(),
-            UserId: user.UserId,
-            TokenHash: tokenHash,
-            Family: family,
-            IsActive: true,
-            IsUsed: false,
-            IsRevoked: false,
-            ExpiresAt: DateTimeOffset.UtcNow.AddDays(_refreshTokenOptions.ExpiryDays),
-            DeviceInfo: deviceInfo);
-
-        await refreshTokenRepository.AddAsync(refreshTokenData, ct);
-        await refreshTokenRepository.SaveChangesAsync(ct);
-
-        var access = accessResult.Value;
-
-        return new TokenResponse(
-            AccessToken: access.AccessToken,
-            ExpiresOnUtc: access.ExpiresOnUtc,
-            RefreshToken: rawRefreshToken);
+    public string HashToken(string token)
+    {
+        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(token));
+        return Convert.ToBase64String(bytes);
     }
 
     public ClaimsPrincipal? GetPrincipalFromExpiredToken(string token)
@@ -94,7 +68,7 @@ public class TokenProvider(
         {
             ValidateIssuer = true,
             ValidateAudience = true,
-            ValidateLifetime = false,   
+            ValidateLifetime = false, 
             ValidateIssuerSigningKey = true,
             ValidIssuer = _jwt.Issuer,
             ValidAudience = _jwt.Audience,
@@ -120,15 +94,4 @@ public class TokenProvider(
             return null;
         }
     }
-    public string GenerateRefreshToken()
-    {
-        return RefreshTokenCrypto.GenerateRawToken(_refreshTokenOptions.TokenBytes);
-    }
-
-    public string HashToken(string token)
-    {
-        return RefreshTokenCrypto.HashToken(token);
-    }
-
-
 }
