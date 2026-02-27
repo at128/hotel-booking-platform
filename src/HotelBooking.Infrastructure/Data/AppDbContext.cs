@@ -1,7 +1,9 @@
 ﻿using HotelBooking.Application.Common.Interfaces;
 using HotelBooking.Domain.Bookings;
+using HotelBooking.Domain.Cart;
 using HotelBooking.Domain.Common;
 using HotelBooking.Domain.Hotels;
+using HotelBooking.Domain.Reviews;
 using HotelBooking.Domain.Rooms;
 using HotelBooking.Domain.Services;
 using HotelBooking.Infrastructure.Identity;
@@ -32,6 +34,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, IMediator medi
     public DbSet<BookingRoom> BookingRooms => Set<BookingRoom>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
+    public DbSet<CartItem> CartItems => Set<CartItem>();
+    public DbSet<Payment> Payments => Set<Payment>();
+    public DbSet<Cancellation> Cancellations => Set<Cancellation>();
+    public DbSet<BookingService> BookingServices => Set<BookingService>();
+    public DbSet<Review> Reviews => Set<Review>();
     public override async Task<int> SaveChangesAsync(CancellationToken ct = default)
     {
         await DispatchDomainEventsAsync(ct);

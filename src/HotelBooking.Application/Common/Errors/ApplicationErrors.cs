@@ -32,4 +32,32 @@ public static class ApplicationErrors
         public static readonly Error RefreshTokenReuse =
             Error.Failure("Auth.RefreshTokenReuse", "Refresh token reuse detected. Please login again.");
     }
+    public static class Cart
+    {
+        public static readonly Error RoomTypeNotFound =
+            Error.NotFound("Cart.RoomTypeNotFound", "Room type not found.");
+
+        public static readonly Error HotelMismatch =
+            Error.Conflict("Cart.HotelMismatch",
+                "Your cart contains rooms from a different hotel. Clear your cart first.");
+
+        public static readonly Error DateMismatch =
+            Error.Conflict("Cart.DateMismatch",
+                "All cart items must have the same check-in and check-out dates.");
+
+        public static readonly Error InvalidDates =
+            Error.Validation("Cart.InvalidDates",
+                "Check-out must be after check-in, and check-in must be in the future.");
+
+        public static readonly Error CartItemNotFound =
+            Error.NotFound("Cart.ItemNotFound", "Cart item not found.");
+
+        public static readonly Error QuantityExceedsCapacity =
+            Error.Conflict("Cart.QuantityExceedsCapacity",
+                "Requested quantity exceeds available rooms of this type.");
+
+        public static Error InvalidQuantity(int max) =>
+            Error.Validation("Cart.InvalidQuantity",
+                $"Quantity must be between 1 and {max}.");
+    }
 }

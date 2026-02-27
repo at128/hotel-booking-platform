@@ -1,10 +1,11 @@
-﻿using System.Threading.RateLimiting;
-using HotelBooking.Api.Infrastructure;
+﻿using HotelBooking.Api.Infrastructure;
 using HotelBooking.Api.Services;
 using HotelBooking.Application.Common.Interfaces;
+using HotelBooking.Infrastructure.Settings;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Configuration;
 using Serilog;
+using System.Threading.RateLimiting;
 
 namespace HotelBooking.Api;
 
@@ -22,6 +23,19 @@ public static class DependencyInjection
         services.AddSwaggerDocumentation();
         services.AddRateLimitingPolicies();
         services.AddCorsPolicy(configuration);
+        services.AddControllers();
+        services.AddEndpointsApiExplorer();
+
+        services.AddHttpContextAccessor();
+        services.AddScoped<IUser, CurrentUser>();
+        services.AddScoped<ICookieService, CookieService>(); // ← أضف هذا
+
+        services.AddExceptionHandler<GlobalExceptionHandler>();
+        services.AddProblemDetails();
+        services.AddMemoryCache();
+        services.Configure<CookieSettings>(
+        configuration.GetSection("CookieSettings"));
+
 
         return services;
     }

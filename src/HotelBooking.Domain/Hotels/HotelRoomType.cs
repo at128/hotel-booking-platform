@@ -35,6 +35,7 @@ namespace HotelBooking.Domain.Hotels
         public decimal PricePerNight { get; private set; }
         public short AdultCapacity { get; private set; }
         public short ChildCapacity { get; private set; }
+        public short MaxOccupancy => (short)(AdultCapacity + ChildCapacity);
         public string? Description { get; private set; }
         public DateTimeOffset? DeletedAtUtc { get; set; }
 
