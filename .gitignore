@@ -52,3 +52,60 @@ CodeCoverage/
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+
+#Net
+## .NET
+bin/
+obj/
+*.user
+*.suo
+*.cache
+*.dll
+*.pdb
+*.exe
+*.nupkg
+project.lock.json
+
+## IDE
+.vs/
+.vscode/settings.json
+.idea/
+*.swp
+*.sln.docstates
+
+## Environment & Secrets
+appsettings.Development.json
+appsettings.Local.json
+.env
+*.pfx
+secrets/
+
+## Uploads & Generated Files
+uploads/
+wwwroot/images/uploads/
+generated-pdfs/
+
+## OS Files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+## Docker overrides
+docker-compose.override.yml
+
+## Test Results
+TestResults/
+coverage/
+*.trx
+*.coveragexml
+
+## Logs
+logs/
+*.log
+
+## NuGet
+packages/
+
+## Build
+publish/
+out/
