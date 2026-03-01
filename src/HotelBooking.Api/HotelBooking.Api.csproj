@@ -5,6 +5,8 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UserSecretsId>eaa8a6c5-5521-4ec3-90c0-e276fede76ca</UserSecretsId>
+    <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+    <DockerfileContext>..\..</DockerfileContext>
   </PropertyGroup>
 
   <ItemGroup>
@@ -17,6 +19,7 @@
   <ItemGroup>
 	  <PackageReference Include="AspNetCore.HealthChecks.SqlServer" />
 	  <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+	  <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" />
 	  <PackageReference Include="Serilog.AspNetCore" />
 	  <PackageReference Include="Asp.Versioning.Mvc" />
 	  <PackageReference Include="Asp.Versioning.Mvc.ApiExplorer" />

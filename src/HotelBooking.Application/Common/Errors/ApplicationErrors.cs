@@ -60,4 +60,18 @@ public static class ApplicationErrors
             Error.Validation("Cart.InvalidQuantity",
                 $"Quantity must be between 1 and {max}.");
     }
+
+    public static class Checkout
+    {
+        public static Error RoomUnavailable(string roomTypeName) =>
+            Error.Conflict("Checkout.RoomUnavailable",
+                $"'{roomTypeName}' is no longer available for the selected dates. Please update your cart.");
+
+        public static readonly Error CartEmpty =
+            Error.Validation("Checkout.CartEmpty", "Your cart is empty.");
+
+        public static readonly Error HoldExpired =
+            Error.Conflict("Checkout.HoldExpired",
+                "Your checkout session has expired. Please try again.");
+    }
 }

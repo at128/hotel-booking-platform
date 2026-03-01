@@ -146,6 +146,8 @@ public static class DataSeeder
 
                 decimal minPrice = decimal.MaxValue;
 
+                int roomCounter = 0;
+
                 foreach (var rt in selectedRoomTypes)
                 {
                     var hrtId = Guid.NewGuid();
@@ -161,14 +163,15 @@ public static class DataSeeder
 
                     allHrt.Add(hrt);
 
-                    // 3-5 rooms per HotelRoomType
+
                     var numRooms = random.Next(3, 6);
                     for (int r = 0; r < numRooms; r++)
                     {
-                        var floor = (short)(r / 5 + 1);
+                        roomCounter++;
+                        var floor = (short)((roomCounter - 1) / 10 + 1); 
                         var room = new Room(
                             Guid.NewGuid(), hrtId, hotelId,
-                            roomNumber: $"{floor}{(r + 1):D2}",
+                            roomNumber: $"{roomCounter:D3}", 
                             floor: floor);
                         allRooms.Add(room);
                     }

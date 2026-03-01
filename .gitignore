@@ -109,3 +109,8 @@ packages/
 ## Build
 publish/
 out/
+
+
+.env
+.env.*
+!.env.example

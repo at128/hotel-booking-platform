@@ -3,6 +3,7 @@ using HotelBooking.Application.Common.Settings;
 using HotelBooking.Infrastructure.BackgroundJobs;
 using HotelBooking.Infrastructure.Data;
 using HotelBooking.Infrastructure.Data.Interceptors;
+using HotelBooking.Infrastructure.Data.Repositories;
 using HotelBooking.Infrastructure.Identity;
 using HotelBooking.Infrastructure.Settings;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -42,6 +43,7 @@ public static class DependencyInjection
 
         services.AddRefreshToken(configuration);
 
+        services.AddScoped<ICheckoutHoldRepository, CheckoutHoldRepository>();
 
 
         return services;

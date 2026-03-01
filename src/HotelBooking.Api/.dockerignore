@@ -1,0 +1,17 @@
+**/.vs
+**/.vscode
+**/.idea
+**/bin
+**/obj
+**/TestResults
+**/.git
+**/.gitignore
+**/README.md
+**/Dockerfile
+**/*.md
+**/docker-compose*
+**/.env
+**/secrets/
+**/uploads/
+**/logs/
+**/coverage/
