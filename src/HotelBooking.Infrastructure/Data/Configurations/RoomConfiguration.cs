@@ -28,6 +28,8 @@ namespace HotelBooking.Infrastructure.Data.Configurations
                 .HasPrincipalKey(hrt => new { hrt.Id, hrt.HotelId })
                 .OnDelete(DeleteBehavior.Restrict);
 
+            
+
             builder.HasOne(r => r.Hotel)
                 .WithMany(h => h.Rooms)
                 .HasForeignKey(r => r.HotelId)

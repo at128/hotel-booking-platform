@@ -41,6 +41,8 @@ public sealed class BookingRoomConfiguration : IEntityTypeConfiguration<BookingR
             .HasPrincipalKey(hr => new { hr.Id, hr.HotelId })
             .OnDelete(DeleteBehavior.Restrict);
 
+
+
         builder.HasIndex(br => new { br.BookingId, br.HotelRoomTypeId });
         builder.HasIndex(br => new { br.HotelId, br.HotelRoomTypeId });
         builder.HasIndex(br => new { br.HotelId, br.RoomId });
