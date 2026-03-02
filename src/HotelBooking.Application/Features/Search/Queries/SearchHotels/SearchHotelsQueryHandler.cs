@@ -2,6 +2,7 @@
 using System.Text.Json;
 using HotelBooking.Application.Common.Interfaces;
 using HotelBooking.Contracts.Search;
+using HotelBooking.Domain.Bookings.Enums;
 using HotelBooking.Domain.Common.Results;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -44,6 +45,39 @@ public sealed class SearchHotelsQueryHandler(IAppDbContext context)
 
             query = query.Where(h => h.HotelRoomTypes.Any(rt =>
                 rt.AdultCapacity >= adults && rt.ChildCapacity >= children));
+        }
+
+        // Availability filter: exclude hotels with no rooms available for the requested dates
+        if (q.CheckIn.HasValue && q.CheckOut.HasValue)
+        {
+            var checkIn = q.CheckIn.Value;
+            var checkOut = q.CheckOut.Value;
+            var requiredRooms = q.NumberOfRooms ?? 1;
+
+            query = query.Where(h => h.HotelRoomTypes.Any(rt =>
+                // Total physical rooms for this room type (not soft-deleted)
+                rt.Rooms.Count(r => r.DeletedAtUtc == null)
+
+                // Minus rooms with active bookings overlapping the requested dates
+                - context.BookingRooms.Count(br =>
+                    br.HotelRoomTypeId == rt.Id
+                    && br.Booking.Status != BookingStatus.Cancelled
+                    && br.Booking.Status != BookingStatus.Failed
+                    && br.Booking.CheckIn < checkOut
+                    && br.Booking.CheckOut > checkIn)
+
+                // Minus rooms held by other users during checkout (not released, not expired)
+                - (int)(context.CheckoutHolds
+                    .Where(ch =>
+                        ch.HotelRoomTypeId == rt.Id
+                        && !ch.IsReleased
+                        && ch.ExpiresAtUtc > DateTimeOffset.UtcNow
+                        && ch.CheckIn < checkOut
+                        && ch.CheckOut > checkIn)
+                    .Sum(ch => (int?)ch.Quantity) ?? 0)
+
+                >= requiredRooms
+            ));
         }
 
         if (q.Amenities is { Count: > 0 })
