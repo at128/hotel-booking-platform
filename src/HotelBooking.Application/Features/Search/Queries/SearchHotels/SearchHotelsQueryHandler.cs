@@ -38,46 +38,51 @@ public sealed class SearchHotelsQueryHandler(IAppDbContext context)
         if (q.MaxPrice.HasValue)
             query = query.Where(h => (h.MinPricePerNight ?? 0) <= q.MaxPrice.Value);
 
-        if (q.Adults.HasValue || q.Children.HasValue)
+        // Combined capacity + availability filter:
+        // Both conditions must be satisfied by the SAME room type
+        if (q.CheckIn.HasValue && q.CheckOut.HasValue)
         {
             var adults = q.Adults ?? 2;
             var children = q.Children ?? 0;
-
-            query = query.Where(h => h.HotelRoomTypes.Any(rt =>
-                rt.AdultCapacity >= adults && rt.ChildCapacity >= children));
-        }
-
-        // Availability filter: exclude hotels with no rooms available for the requested dates
-        if (q.CheckIn.HasValue && q.CheckOut.HasValue)
-        {
             var checkIn = q.CheckIn.Value;
             var checkOut = q.CheckOut.Value;
             var requiredRooms = q.NumberOfRooms ?? 1;
 
             query = query.Where(h => h.HotelRoomTypes.Any(rt =>
-                // Total physical rooms for this room type (not soft-deleted)
-                rt.Rooms.Count(r => r.DeletedAtUtc == null)
+                // Capacity: room type fits the guest count
+                rt.AdultCapacity >= adults
+                && rt.ChildCapacity >= children
 
-                // Minus rooms with active bookings overlapping the requested dates
-                - context.BookingRooms.Count(br =>
-                    br.HotelRoomTypeId == rt.Id
-                    && br.Booking.Status != BookingStatus.Cancelled
-                    && br.Booking.Status != BookingStatus.Failed
-                    && br.Booking.CheckIn < checkOut
-                    && br.Booking.CheckOut > checkIn)
+                // Availability: enough unbooked/unheld rooms for the dates
+                && rt.Rooms.Count(r => r.DeletedAtUtc == null)
 
-                // Minus rooms held by other users during checkout (not released, not expired)
-                - (int)(context.CheckoutHolds
-                    .Where(ch =>
-                        ch.HotelRoomTypeId == rt.Id
-                        && !ch.IsReleased
-                        && ch.ExpiresAtUtc > DateTimeOffset.UtcNow
-                        && ch.CheckIn < checkOut
-                        && ch.CheckOut > checkIn)
-                    .Sum(ch => (int?)ch.Quantity) ?? 0)
+                    - context.BookingRooms.Count(br =>
+                        br.HotelRoomTypeId == rt.Id
+                        && br.Booking.Status != BookingStatus.Cancelled
+                        && br.Booking.Status != BookingStatus.Failed
+                        && br.Booking.CheckIn < checkOut
+                        && br.Booking.CheckOut > checkIn)
 
-                >= requiredRooms
+                    - (int)(context.CheckoutHolds
+                        .Where(ch =>
+                            ch.HotelRoomTypeId == rt.Id
+                            && !ch.IsReleased
+                            && ch.ExpiresAtUtc > DateTimeOffset.UtcNow
+                            && ch.CheckIn < checkOut
+                            && ch.CheckOut > checkIn)
+                        .Sum(ch => (int?)ch.Quantity) ?? 0)
+
+                    >= requiredRooms
             ));
+        }
+        else if (q.Adults.HasValue || q.Children.HasValue)
+        {
+            // No dates provided — filter by capacity only
+            var adults = q.Adults ?? 2;
+            var children = q.Children ?? 0;
+
+            query = query.Where(h => h.HotelRoomTypes.Any(rt =>
+                rt.AdultCapacity >= adults && rt.ChildCapacity >= children));
         }
 
         if (q.Amenities is { Count: > 0 })
