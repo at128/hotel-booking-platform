@@ -17,22 +17,12 @@ public class CachingBehavior<TRequest, TResponse>(
         RequestHandlerDelegate<TResponse> next,
         CancellationToken ct)
     {
-        return await cache.GetOrCreateAsync(
+        var response = await cache.GetOrCreateAsync(
             key: request.CacheKey,
             factory: async cancel =>
             {
-                var response = await next();
-
-                if (response is IResult result && !result.IsSuccess)
-                {
-                    logger.LogDebug("Cache skip (failed result): {CacheKey}", request.CacheKey);
-                }
-                else
-                {
-                    logger.LogDebug("Cache set: {CacheKey} ({Expiration})", request.CacheKey, request.Expiration);
-                }
-
-                return response;
+                logger.LogDebug("Cache miss, executing handler: {CacheKey}", request.CacheKey);
+                return await next();
             },
             options: new HybridCacheEntryOptions
             {
@@ -40,5 +30,15 @@ public class CachingBehavior<TRequest, TResponse>(
             },
             tags: request.Tags,
             cancellationToken: ct);
+
+        // Evict failed results immediately so transient errors
+        // are not replayed to subsequent callers until expiration
+        if (response is IResult result && !result.IsSuccess)
+        {
+            await cache.RemoveAsync(request.CacheKey, ct);
+            logger.LogDebug("Cache evicted (failed result): {CacheKey}", request.CacheKey);
+        }
+
+        return response;
     }
 }
