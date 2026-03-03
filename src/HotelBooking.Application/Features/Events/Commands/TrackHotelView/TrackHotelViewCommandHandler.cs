@@ -19,10 +19,7 @@ public sealed class TrackHotelViewCommandHandler(IAppDbContext context)
         if (!hotelExists)
             return HotelErrors.NotFound;
 
-        var existingVisit = await context.HotelVisits
-            .Where(hv => hv.UserId == cmd.UserId && hv.HotelId == cmd.HotelId)
-            .OrderByDescending(hv => hv.VisitedAtUtc)
-            .FirstOrDefaultAsync(ct);
+        var existingVisit = await LoadVisitAsync(cmd.UserId, cmd.HotelId, ct);
 
         if (existingVisit is null)
         {
@@ -30,8 +27,19 @@ public sealed class TrackHotelViewCommandHandler(IAppDbContext context)
             visit.UpdateVisitTime();
             context.HotelVisits.Add(visit);
 
-            await context.SaveChangesAsync(ct);
-            return Result.Success;
+            try
+            {
+                await context.SaveChangesAsync(ct);
+                return Result.Success;
+            }
+            catch (DbUpdateException ex) when (IsLikelyUniqueConstraintViolation(ex))
+            {
+                context.HotelVisits.Remove(visit);
+
+                existingVisit = await LoadVisitAsync(cmd.UserId, cmd.HotelId, ct);
+                if (existingVisit is null)
+                    throw; 
+            }
         }
 
         var cutoff = DateTimeOffset.UtcNow.Subtract(DedupWindow);
@@ -42,5 +50,22 @@ public sealed class TrackHotelViewCommandHandler(IAppDbContext context)
         await context.SaveChangesAsync(ct);
 
         return Result.Success;
+    }
+
+    private Task<HotelVisit?> LoadVisitAsync(Guid userId, Guid hotelId, CancellationToken ct)
+    {
+        return context.HotelVisits
+            .Where(hv => hv.UserId == userId && hv.HotelId == hotelId)
+            .OrderByDescending(hv => hv.VisitedAtUtc)
+            .FirstOrDefaultAsync(ct);
+    }
+
+    private static bool IsLikelyUniqueConstraintViolation(DbUpdateException ex)
+    {
+        var msg = ex.InnerException?.Message ?? ex.Message;
+
+        return msg.Contains("duplicate key", StringComparison.OrdinalIgnoreCase)
+            || msg.Contains("UNIQUE KEY", StringComparison.OrdinalIgnoreCase)
+            || msg.Contains("unique constraint", StringComparison.OrdinalIgnoreCase);
     }
 }
