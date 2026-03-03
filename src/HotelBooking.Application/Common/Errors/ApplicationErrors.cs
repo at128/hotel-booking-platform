@@ -87,5 +87,6 @@ public static class ApplicationErrors
         public static readonly Error SessionNotFound =
             Error.NotFound("Payment.SessionNotFound",
                 "Payment session not found.");
+
     }
 }

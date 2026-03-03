@@ -5,6 +5,7 @@ using HotelBooking.Infrastructure.Data;
 using HotelBooking.Infrastructure.Data.Interceptors;
 using HotelBooking.Infrastructure.Data.Repositories;
 using HotelBooking.Infrastructure.Identity;
+using HotelBooking.Infrastructure.Payment;
 using HotelBooking.Infrastructure.Settings;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;

@@ -4,6 +4,7 @@ using HotelBooking.Domain.Bookings;
 using HotelBooking.Domain.Bookings.Enums;
 using HotelBooking.Domain.Common.Results;
 using HotelBooking.Domain.Hotels;
+using HotelBooking.Domain.Rooms;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -54,7 +55,7 @@ public sealed class GetRoomAvailabilityQueryHandler(IAppDbContext context)
 
         var availability = roomTypes.Select(hrt =>
         {
-            var totalRooms = hrt.Rooms.Count(r => r.Status == "available");
+            var totalRooms = hrt.Rooms.Count(r => r.Status == RoomStatus.Available);
             var booked = bookedCounts.FirstOrDefault(b => b.HotelRoomTypeId == hrt.Id)?.Count ?? 0;
             var held = heldCounts.FirstOrDefault(h => h.HotelRoomTypeId == hrt.Id)?.Count ?? 0;
             var available = Math.Max(0, totalRooms - booked - held);
