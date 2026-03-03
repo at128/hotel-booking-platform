@@ -31,7 +31,7 @@ namespace HotelBooking.Domain.Rooms
         public HotelRoomType HotelRoomType { get; private set; } = null!;
         public Hotel Hotel { get; private set; } = null!;
 
-        public void UpdateStatus(string status)
+        public void UpdateStatus(RoomStatus status)
         {
             Status = status;
         }
