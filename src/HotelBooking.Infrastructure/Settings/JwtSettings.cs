@@ -1,6 +1,6 @@
 ﻿namespace HotelBooking.Infrastructure.Settings;
 
-public class JwtSettings
+public sealed  class JwtSettings
 {
     public string Secret { get; set; } = default!;
     public string Issuer { get; set; } = default!;
