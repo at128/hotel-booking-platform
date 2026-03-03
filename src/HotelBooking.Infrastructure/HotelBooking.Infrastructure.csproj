@@ -26,5 +26,7 @@
 		<PackageReference Include="Serilog.AspNetCore" />
 		<PackageReference Include="Serilog.Sinks.Seq" />
 		<PackageReference Include="System.IdentityModel.Tokens.Jwt" />
+
+		<PackageReference Include="Stripe.net" />
 	</ItemGroup>
 </Project>
