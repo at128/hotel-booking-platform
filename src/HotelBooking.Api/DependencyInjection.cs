@@ -1,4 +1,5 @@
-﻿using HotelBooking.Api.Infrastructure;
+﻿using HotelBooking.Api.BackgroundJobs;
+using HotelBooking.Api.Infrastructure;
 using HotelBooking.Api.Services;
 using HotelBooking.Application.Common.Interfaces;
 using HotelBooking.Infrastructure.Settings;
@@ -36,7 +37,9 @@ public static class DependencyInjection
         services.Configure<CookieSettings>(
         configuration.GetSection("CookieSettings"));
 
+        services.AddExpirePendingPaymentsJobSettings(configuration);
 
+        
         return services;
     }
 
@@ -234,5 +237,21 @@ public static class DependencyInjection
         app.UseAuthorization();
 
         return app;
+    }
+
+    private static IServiceCollection AddExpirePendingPaymentsJobSettings(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        services
+        .AddOptions<ExpirePendingPaymentsJobSettings>()
+        .Bind(configuration.GetSection(ExpirePendingPaymentsJobSettings.SectionName))
+        .Validate(s => s.IntervalSeconds > 0, "IntervalSeconds must be > 0.")
+        .Validate(s => s.BatchSize > 0, "BatchSize must be > 0.")
+        .ValidateOnStart();
+
+        services.AddHostedService<ExpirePendingPaymentsBackgroundService>();
+
+        return services;
     }
 }

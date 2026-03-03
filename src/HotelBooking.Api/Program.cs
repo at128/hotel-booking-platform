@@ -12,6 +12,8 @@ ConfigureHostLogging(builder);
 AddApplicationServices(builder);
 AddHealthChecks(builder);
 
+
+
 var app = builder.Build();
 
 await ApplyMigrationsAndSeedAsync(app);
@@ -86,14 +88,15 @@ static void MapHealthEndpoints(WebApplication app)
     {
         Predicate = _ => false,
         AllowCachingResponses = false
-    });
+    }).AllowAnonymous();
 
     app.MapHealthChecks("/api/v1/health/ready", new HealthCheckOptions
     {
+
         Predicate = _ => true,
         AllowCachingResponses = false
     })
-    .RequireAuthorization();
+    .AllowAnonymous();
 }
 
 public partial class Program;

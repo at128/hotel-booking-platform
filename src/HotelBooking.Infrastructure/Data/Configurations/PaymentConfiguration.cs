@@ -51,7 +51,7 @@ public sealed class PaymentConfiguration : IEntityTypeConfiguration<HotelBooking
             .OnDelete(DeleteBehavior.Cascade);
 
         builder.HasIndex(x => x.BookingId);
-        builder.HasIndex(x => x.Status);
+        builder.HasIndex(x => new { x.Status, x.CreatedAtUtc });
 
         builder.HasIndex(x => x.TransactionRef)
             .IsUnique()
