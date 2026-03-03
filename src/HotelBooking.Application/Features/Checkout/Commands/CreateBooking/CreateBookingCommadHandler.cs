@@ -1,4 +1,5 @@
-﻿using HotelBooking.Application.Common.Errors;
+﻿using System.Data;
+using HotelBooking.Application.Common.Errors;
 using HotelBooking.Application.Common.Interfaces;
 using HotelBooking.Application.Common.Models.Payment;
 using HotelBooking.Application.Settings;
@@ -6,6 +7,7 @@ using HotelBooking.Contracts.Checkout;
 using HotelBooking.Domain.Bookings;
 using HotelBooking.Domain.Bookings.Enums;
 using HotelBooking.Domain.Common.Results;
+using HotelBooking.Domain.Rooms;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -27,179 +29,283 @@ public sealed class CreateBookingCommandHandler(
     public async Task<Result<CreateBookingResponse>> Handle(
         CreateBookingCommand cmd, CancellationToken ct)
     {
-        // ── 1. Load holds ────────────────────────────────────────────────────
-        var holds = await db.CheckoutHolds
-            .Include(h => h.HotelRoomType)
-                .ThenInclude(hrt => hrt.Hotel)
-            .Include(h => h.HotelRoomType)
-                .ThenInclude(hrt => hrt.RoomType)
-            .Where(h => cmd.HoldIds.Contains(h.Id)
-                     && h.UserId == cmd.UserId
-                     && !h.IsReleased)
-            .ToListAsync(ct);
+        // Phase A: DB-only transaction (create booking/payment + assign rooms + release holds)
+        var phaseA = await CreatePendingBookingAsync(cmd, ct);
+        if (phaseA.Error is not null)
+            return phaseA.Error;
 
-        if (holds.Count == 0 || holds.Count != cmd.HoldIds.Count)
-            return ApplicationErrors.Checkout.HoldExpired;
+        var created = phaseA.Value!;
 
-        if (holds.Any(h => h.IsExpired()))
-            return ApplicationErrors.Checkout.HoldExpired;
+        // Phase B: External payment provider call (OUTSIDE DB transaction)
+        PaymentSessionResponse session;
+        try
+        {
+            session = await paymentGateway.CreatePaymentSessionAsync(
+                new PaymentSessionRequest(
+                    BookingId: created.BookingId,
+                    BookingNumber: created.BookingNumber,
+                    AmountInUsd: created.TotalAmount,
+                    CustomerEmail: cmd.UserEmail,
+                    HotelName: created.HotelName,
+                    CheckIn: created.CheckIn,
+                    CheckOut: created.CheckOut,
+                    SuccessUrl: string.Format(_urls.SuccessUrlTemplate, created.BookingId),
+                    CancelUrl: string.Format(_urls.CancelUrlTemplate, created.BookingId)),
+                ct);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex,
+                "Failed to create {Provider} payment session for booking {BookingId}",
+                paymentGateway.ProviderName, created.BookingId);
 
-        // ── 2. Derive booking metadata from holds ────────────────────────────
-        var hotel = holds[0].HotelRoomType.Hotel;
-        var checkIn = holds[0].CheckIn;
-        var checkOut = holds[0].CheckOut;
-        var nights = checkOut.DayNumber - checkIn.DayNumber;
+            return ApplicationErrors.Payment.GatewayUnavailable;
+        }
 
-        // ── 3. Assign specific rooms per hold ────────────────────────────────
-        var bookingId = Guid.CreateVersion7();
+        // Phase C: Persist provider session id in a short DB transaction
+        await PersistPaymentSessionAsync(created.PaymentId, session.SessionId, ct);
+
+        logger.LogInformation(
+            "Booking {BookingNumber} created. Payment session {SessionId} via {Provider}",
+            created.BookingNumber, session.SessionId, paymentGateway.ProviderName);
+
+        return new CreateBookingResponse(
+            BookingId: created.BookingId,
+            BookingNumber: created.BookingNumber,
+            TotalAmount: created.TotalAmount,
+            PaymentUrl: session.PaymentUrl,
+            ExpiresAtUtc: DateTimeOffset.UtcNow.AddMinutes(_booking.CheckoutHoldMinutes));
+    }
+
+    private async Task<PhaseAResult> CreatePendingBookingAsync(
+        CreateBookingCommand cmd,
+        CancellationToken ct)
+    {
+        await using var tx = await db.BeginTransactionAsync(IsolationLevel.Serializable, ct);
+        try
+        {
+            // 1) Load active holds for this user
+            var requestedHoldIds = cmd.HoldIds.Distinct().ToList();
+
+            var holds = await db.CheckoutHolds
+                .Include(h => h.HotelRoomType)
+                    .ThenInclude(hrt => hrt.Hotel)
+                .Include(h => h.HotelRoomType)
+                    .ThenInclude(hrt => hrt.RoomType)
+                .Where(h => requestedHoldIds.Contains(h.Id)
+                         && h.UserId == cmd.UserId
+                         && !h.IsReleased)
+                .ToListAsync(ct);
+
+            if (holds.Count == 0 || holds.Count != requestedHoldIds.Count)
+                return PhaseAResult.Fail(ApplicationErrors.Checkout.HoldExpired);
+
+            if (holds.Any(h => h.IsExpired()))
+                return PhaseAResult.Fail(ApplicationErrors.Checkout.HoldExpired);
+
+            var holdsValidationError = ValidateHoldsConsistency(holds);
+            if (holdsValidationError is not null)
+                return PhaseAResult.Fail(holdsValidationError.Value);
+
+            // 2) Derive booking metadata from holds
+            var firstHold = holds[0];
+            var hotel = firstHold.HotelRoomType.Hotel;
+            var checkIn = firstHold.CheckIn;
+            var checkOut = firstHold.CheckOut;
+            var nights = checkOut.DayNumber - checkIn.DayNumber;
+
+            if (nights <= 0)
+                return PhaseAResult.Fail(ApplicationErrors.Cart.InvalidDates);
+
+            // 3) Assign specific rooms (inside transaction)
+            var bookingId = Guid.CreateVersion7();
+            var bookingRooms = await AssignRoomsAsync(
+                bookingId: bookingId,
+                holds: holds,
+                checkIn: checkIn,
+                checkOut: checkOut,
+                ct: ct);
+
+            if (bookingRooms is null)
+            {
+                logger.LogWarning(
+                    "Room assignment failed during CreateBooking for user {UserId}. Holds: {HoldIds}",
+                    cmd.UserId, requestedHoldIds);
+
+                return PhaseAResult.Fail(ApplicationErrors.Payment.RoomNoLongerAvailable(
+                    firstHold.HotelRoomType.RoomType.Name));
+            }
+
+            // 4) Calculate totals
+            var subtotal = holds.Sum(h => h.HotelRoomType.PricePerNight * nights * h.Quantity);
+            var tax = subtotal * _booking.TaxRate;
+            var total = subtotal + tax;
+
+            // 5) Create booking + payment
+            var bookingNumber = GenerateBookingNumber();
+
+            var booking = new Booking(
+                id: bookingId,
+                bookingNumber: bookingNumber,
+                userId: cmd.UserId,
+                hotelId: hotel.Id,
+                hotelName: hotel.Name,
+                hotelAddress: hotel.Address,
+                checkIn: checkIn,
+                checkOut: checkOut,
+                totalAmount: total,
+                notes: cmd.Notes);
+
+            var payment = new Payment(
+                id: Guid.CreateVersion7(),
+                bookingId: bookingId,
+                amount: total,
+                method: PaymentMethod.Stripe);
+
+            db.Bookings.Add(booking);
+            db.BookingRooms.AddRange(bookingRooms);
+            db.Payments.Add(payment);
+
+            foreach (var hold in holds)
+            {
+                hold.Release();
+            }
+
+            await db.SaveChangesAsync(ct);
+            await tx.CommitAsync(ct);
+
+            return PhaseAResult.Ok(new CreatedBookingSnapshot(
+                BookingId: bookingId,
+                PaymentId: payment.Id,
+                BookingNumber: bookingNumber,
+                HotelName: hotel.Name,
+                CheckIn: checkIn,
+                CheckOut: checkOut,
+                TotalAmount: total));
+        }
+        catch (OperationCanceledException)
+        {
+            try
+            {
+                await tx.RollbackAsync(CancellationToken.None);
+            }
+            catch
+            {
+
+            }
+
+            throw;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to create booking transaction for user {UserId}", cmd.UserId);
+
+            try
+            {
+                await tx.RollbackAsync(ct);
+            }
+            catch (Exception rollbackEx)
+            {
+                logger.LogWarning(rollbackEx,
+                    "Rollback failed while creating booking for user {UserId}", cmd.UserId);
+            }
+
+            throw;
+        }
+    }
+
+    private async Task<List<BookingRoom>?> AssignRoomsAsync(
+        Guid bookingId,
+        List<CheckoutHold> holds,
+        DateOnly checkIn,
+        DateOnly checkOut,
+        CancellationToken ct)
+    {
         var bookingRooms = new List<BookingRoom>();
 
-        foreach (var hold in holds)
+        var alreadyAssignedRoomIds = new HashSet<Guid>();
+
+        foreach (var group in holds.GroupBy(h => h.HotelRoomTypeId))
         {
-            // Rooms that are not in any active booking overlapping these dates
+            var sampleHold = group.First();
+            var requiredQuantity = group.Sum(h => h.Quantity);
+
             var assignedRooms = await db.Rooms
-                .Where(r => r.HotelRoomTypeId == hold.HotelRoomTypeId
-                         && r.Status == "available"
+                .Where(r => r.HotelRoomTypeId == group.Key
+                         && r.Status == RoomStatus.Available
+                         && !alreadyAssignedRoomIds.Contains(r.Id)
                          && !db.BookingRooms.Any(br =>
                                 br.RoomId == r.Id
                              && br.Booking.Status != BookingStatus.Cancelled
                              && br.Booking.Status != BookingStatus.Failed
                              && br.Booking.CheckIn < checkOut
                              && br.Booking.CheckOut > checkIn))
-                .Take(hold.Quantity)
+                .Take(requiredQuantity)
                 .ToListAsync(ct);
 
-            if (assignedRooms.Count < hold.Quantity)
+            if (assignedRooms.Count < requiredQuantity)
             {
                 logger.LogWarning(
-                    "Room assignment failed for hold {HoldId}: needed {Needed}, found {Found}",
-                    hold.Id, hold.Quantity, assignedRooms.Count);
-                return ApplicationErrors.Payment.RoomNoLongerAvailable(
-                    hold.HotelRoomType.RoomType.Name);
+                    "Room assignment failed for room type {RoomTypeId}: needed {Needed}, found {Found}",
+                    group.Key, requiredQuantity, assignedRooms.Count);
+
+                return null;
             }
 
             foreach (var room in assignedRooms)
             {
+                alreadyAssignedRoomIds.Add(room.Id);
+
                 bookingRooms.Add(new BookingRoom(
                     id: Guid.CreateVersion7(),
                     bookingId: bookingId,
-                    hotelId: hotel.Id,
+                    hotelId: sampleHold.HotelRoomType.Hotel.Id,
                     roomId: room.Id,
-                    hotelRoomTypeId: hold.HotelRoomTypeId,
-                    roomTypeName: hold.HotelRoomType.RoomType.Name,
+                    hotelRoomTypeId: sampleHold.HotelRoomTypeId,
+                    roomTypeName: sampleHold.HotelRoomType.RoomType.Name,
                     roomNumber: room.RoomNumber,
-                    pricePerNight: hold.HotelRoomType.PricePerNight));
+                    pricePerNight: sampleHold.HotelRoomType.PricePerNight));
             }
         }
 
-        // ── 4. Calculate totals ──────────────────────────────────────────────
-        var subtotal = holds.Sum(h => h.HotelRoomType.PricePerNight * nights * h.Quantity);
-        var tax = subtotal * _booking.TaxRate;
-        var total = subtotal + tax;
+        return bookingRooms;
+    }
 
-        // ── 5. Create Booking + Payment inside transaction ─────────────────────────
-        var bookingNumber = GenerateBookingNumber();
+    private static Error? ValidateHoldsConsistency(List<CheckoutHold> holds)
+    {
+        if (holds.Count == 0)
+            return ApplicationErrors.Checkout.HoldExpired;
 
-        var booking = new Booking(
-            id: bookingId,
-            bookingNumber: bookingNumber,
-            userId: cmd.UserId,
-            hotelId: hotel.Id,
-            hotelName: hotel.Name,
-            hotelAddress: hotel.Address,
-            checkIn: checkIn,
-            checkOut: checkOut,
-            totalAmount: total,
-            notes: cmd.Notes);
+        var first = holds[0];
 
-        var payment = new Payment(
-            id: Guid.CreateVersion7(),
-            bookingId: bookingId,
-            amount: total,
-            method: PaymentMethod.Stripe);
+        // كل الـholds لازم تكون لنفس الفندق ونفس الفترة
+        if (holds.Any(h => h.HotelRoomType.HotelId != first.HotelRoomType.HotelId))
+            return ApplicationErrors.Checkout.HoldExpired;
 
-        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        if (holds.Any(h => h.CheckIn != first.CheckIn || h.CheckOut != first.CheckOut))
+            return ApplicationErrors.Checkout.HoldExpired;
 
-        try
-        {
-            // أضف مرة واحدة فقط
-            db.Bookings.Add(booking);
-            db.BookingRooms.AddRange(bookingRooms);
-            db.Payments.Add(payment);
+        return null;
+    }
 
-            // الحفظ الأول: إنشاء سجل الحجز/الدفع بحالة Pending غالبًا
-            await db.SaveChangesAsync(ct);
+    private async Task PersistPaymentSessionAsync(Guid paymentId, string sessionId, CancellationToken ct)
+    {
+        await using var tx = await db.BeginTransactionAsync(ct);
 
-            // إنشاء جلسة الدفع
-            PaymentSessionResponse session;
-            try
-            {
-                session = await paymentGateway.CreatePaymentSessionAsync(
-                    new PaymentSessionRequest(
-                        BookingId: bookingId,
-                        BookingNumber: bookingNumber,
-                        AmountInUsd: total,
-                        CustomerEmail: cmd.UserEmail,
-                        HotelName: hotel.Name,
-                        CheckIn: checkIn,
-                        CheckOut: checkOut,
-                        SuccessUrl: string.Format(_urls.SuccessUrlTemplate, bookingId),
-                        CancelUrl: string.Format(_urls.CancelUrlTemplate, bookingId)),
-                    ct);
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex,
-                    "Failed to create {Provider} payment session for booking {BookingId}",
-                    paymentGateway.ProviderName, bookingId);
+        var payment = await db.Payments
+            .FirstOrDefaultAsync(p => p.Id == paymentId, ct);
 
-                await tx.RollbackAsync(ct);
-                return ApplicationErrors.Payment.GatewayUnavailable;
-            }
+        if (payment is null)
+            throw new InvalidOperationException($"Payment {paymentId} was not found after booking creation.");
 
-            // تحديث Payment بالـ session id
-            payment.SetProviderSession(session.SessionId);
+        payment.SetProviderSession(sessionId);
 
-            // الحفظ الثاني
-            await db.SaveChangesAsync(ct);
-
-            await tx.CommitAsync(ct);
-
-            logger.LogInformation(
-                "Booking {BookingNumber} created. Payment session {SessionId} via {Provider}",
-                bookingNumber, session.SessionId, paymentGateway.ProviderName);
-
-            // إذا عندك implicit conversion من response إلى Result<response> فهذا يكفي
-            return new CreateBookingResponse(
-                BookingId: bookingId,
-                BookingNumber: bookingNumber,
-                TotalAmount: total,
-                PaymentUrl: session.PaymentUrl,
-                ExpiresAtUtc: DateTimeOffset.UtcNow.AddMinutes(_booking.CheckoutHoldMinutes));
-
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Failed to create booking transaction for booking {BookingId}", bookingId);
-
-            await tx.RollbackAsync(ct);
-            throw;
-        }
-
-        // ── 9. Persist session ID ────────────────────────────────────────────
-        payment.SetProviderSession(session.SessionId);
         await db.SaveChangesAsync(ct);
-
-        logger.LogInformation(
-            "Booking {BookingNumber} created. Payment session {SessionId} via {Provider}",
-            bookingNumber, session.SessionId, paymentGateway.ProviderName);
-
-        return new CreateBookingResponse(
-            BookingId: bookingId,
-            BookingNumber: bookingNumber,
-            TotalAmount: total,
-            PaymentUrl: session.PaymentUrl,
-            ExpiresAtUtc: DateTimeOffset.UtcNow.AddMinutes(_booking.CheckoutHoldMinutes));
+        await tx.CommitAsync(ct);
     }
 
     private static string GenerateBookingNumber()
@@ -207,5 +313,29 @@ public sealed class CreateBookingCommandHandler(
         var datePart = DateOnly.FromDateTime(DateTime.UtcNow).ToString("yyyyMMdd");
         var randomPart = Guid.CreateVersion7().ToString("N")[..6].ToUpperInvariant();
         return $"BK-{datePart}-{randomPart}";
+    }
+
+    private sealed record CreatedBookingSnapshot(
+        Guid BookingId,
+        Guid PaymentId,
+        string BookingNumber,
+        string HotelName,
+        DateOnly CheckIn,
+        DateOnly CheckOut,
+        decimal TotalAmount);
+
+    private sealed class PhaseAResult
+    {
+        private PhaseAResult(Error? error, CreatedBookingSnapshot? value)
+        {
+            Error = error;
+            Value = value;
+        }
+
+        public Error? Error { get; }
+        public CreatedBookingSnapshot? Value { get; }
+
+        public static PhaseAResult Ok(CreatedBookingSnapshot value) => new(null, value);
+        public static PhaseAResult Fail(Error error) => new(error, null);
     }
 }
