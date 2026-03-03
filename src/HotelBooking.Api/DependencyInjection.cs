@@ -42,6 +42,13 @@ public static class DependencyInjection
 
     public static WebApplication UseCoreMiddlewares(this WebApplication app)
     {
+        if (!app.Environment.IsDevelopment())
+        {
+            app.UseHsts();
+        }
+        app.UseHttpsRedirection();
+        app.UseAuthentication();
+        app.UseAuthorization();
         app.UseDiagnosticsAndErrorHandling();
         app.UseSwaggerAndHsts();
         app.UseHttpSecurityPipeline();
