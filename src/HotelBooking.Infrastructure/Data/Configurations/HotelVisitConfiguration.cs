@@ -25,9 +25,6 @@ namespace HotelBooking.Infrastructure.Data.Configurations
             builder.HasIndex(hv => new { hv.UserId, hv.VisitedAtUtc })
                 .IsDescending(false, true)
                 .HasDatabaseName("IX_hotel_visits_user_recent");
-            builder.HasIndex(hv => new { hv.UserId, hv.VisitedAtUtc })
-    .IsDescending(false, true)
-    .HasDatabaseName("IX_HotelVisit_User_VisitedAt");
             // Prevent duplicate: update visit time instead of inserting new
             builder.HasIndex(hv => new { hv.UserId, hv.HotelId })
                 .IsUnique();

@@ -17,7 +17,7 @@ public sealed class GetRoomAvailabilityQueryHandler(IAppDbContext context)
         GetRoomAvailabilityQuery q, CancellationToken ct)
     {
         var hotel = await context.Hotels
-            .AnyAsync(h => h.Id == q.HotelId, ct);
+            .AnyAsync(h => h.Id == q.HotelId && h.DeletedAtUtc == null, ct);
 
         if (!hotel)
             return HotelErrors.NotFound;
@@ -25,12 +25,23 @@ public sealed class GetRoomAvailabilityQueryHandler(IAppDbContext context)
         var now = DateTimeOffset.UtcNow;
 
         var roomTypes = await context.HotelRoomTypes
-            .Include(hrt => hrt.RoomType)
-            .Include(hrt => hrt.Rooms)
-            .Where(hrt => hrt.HotelId == q.HotelId && hrt.DeletedAtUtc == null)
-            .ToListAsync(ct);
+                .AsNoTracking()
+                .Where(hrt => hrt.HotelId == q.HotelId && hrt.DeletedAtUtc == null)
+                .Select(hrt => new
+                {
+                    hrt.Id,
+                    RoomTypeName = hrt.RoomType.Name,
+                    hrt.PricePerNight,
+                    hrt.AdultCapacity,
+                    hrt.ChildCapacity,
+                    TotalRooms = hrt.Rooms.Count(r =>
+                        r.Status == RoomStatus.Available &&
+                        r.DeletedAtUtc == null)
+                })
+                .ToListAsync(ct);
 
         var bookedCounts = await context.Bookings
+            .AsNoTracking()
             .Where(b => b.HotelId == q.HotelId
                      && b.Status != BookingStatus.Cancelled
                      && b.Status != BookingStatus.Failed
@@ -41,7 +52,6 @@ public sealed class GetRoomAvailabilityQueryHandler(IAppDbContext context)
             .Select(g => new { HotelRoomTypeId = g.Key, Count = g.Count() })
             .ToListAsync(ct);
 
-        // Held rooms (not expired + overlap)
         var heldCounts = await context.CheckoutHolds
             .AsNoTracking()
             .Where(ch => ch.HotelId == q.HotelId
@@ -53,6 +63,9 @@ public sealed class GetRoomAvailabilityQueryHandler(IAppDbContext context)
             .Select(g => new { HotelRoomTypeId = g.Key, Count = g.Sum(x => x.Quantity) })
             .ToListAsync(ct);
 
+        var bookedByType = bookedCounts.ToDictionary(x => x.HotelRoomTypeId, x => x.Count);
+        var heldByType = heldCounts.ToDictionary(x => x.HotelRoomTypeId, x => x.Count);
+
         var availability = roomTypes.Select(hrt =>
         {
             var totalRooms = hrt.Rooms.Count(r => r.Status == RoomStatus.Available);
@@ -62,14 +75,15 @@ public sealed class GetRoomAvailabilityQueryHandler(IAppDbContext context)
 
             return new RoomAvailabilityDto(
                 hrt.Id,
-                hrt.RoomType.Name,
+                hrt.RoomTypeName,
                 hrt.PricePerNight,
                 hrt.AdultCapacity,
                 hrt.ChildCapacity,
                 totalRooms,
                 booked,
                 held,
-                available);
+                available
+            );
         }).ToList();
 
         return new RoomAvailabilityResponse(q.HotelId, q.CheckIn, q.CheckOut, availability);

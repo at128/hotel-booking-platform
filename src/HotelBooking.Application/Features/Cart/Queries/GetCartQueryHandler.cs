@@ -4,7 +4,7 @@ using HotelBooking.Domain.Common.Results;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
-namespace HotelBooking.Application.Features.Cart.Queries.GetCart;
+namespace HotelBooking.Application.Features.Cart.Queries;
 
 public sealed class GetCartQueryHandler(IAppDbContext db)
     : IRequestHandler<GetCartQuery, Result<CartResponse>>

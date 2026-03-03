@@ -18,6 +18,8 @@ var app = builder.Build();
 
 await ApplyMigrationsAndSeedAsync(app);
 
+
+
 app.UseCoreMiddlewares();
 app.MapControllers();
 MapHealthEndpoints(app);
