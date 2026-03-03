@@ -8,10 +8,10 @@ namespace HotelBooking.Domain.Bookings.Enums
 {
     public enum PaymentMethod
     {
-        Stripe,
-        PayPal,
-        BankTransfer,
-        CreditCard
+        Stripe = 0,
+        PayPal = 1,
+        BankTransfer = 2,
+        CreditCard = 3
     }
 
 }

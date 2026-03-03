@@ -8,11 +8,11 @@ namespace HotelBooking.Domain.Bookings.Enums
 {
     public enum BookingStatus
     {
-        Pending,
-        Confirmed,
-        CheckedIn,
-        Completed,
-        Cancelled,
-        Failed
+        Pending = 0,
+        Confirmed = 1,
+        CheckedIn = 2,
+        Completed = 3,
+        Cancelled = 4,
+        Failed = 5
     }
 }

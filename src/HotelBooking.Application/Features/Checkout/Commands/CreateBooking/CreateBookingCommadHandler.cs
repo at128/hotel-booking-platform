@@ -63,6 +63,8 @@ public sealed class CreateBookingCommandHandler(
                 "Failed to create {Provider} payment session for booking {BookingId}",
                 paymentGateway.ProviderName, created.BookingId);
 
+            await MarkPaymentInitiationFailedSafeAsync(created.PaymentId, ct);
+
             return ApplicationErrors.Payment.GatewayUnavailable;
         }
 
@@ -337,5 +339,34 @@ public sealed class CreateBookingCommandHandler(
 
         public static PhaseAResult Ok(CreatedBookingSnapshot value) => new(null, value);
         public static PhaseAResult Fail(Error error) => new(error, null);
+    }
+
+    private async Task MarkPaymentInitiationFailedSafeAsync(Guid paymentId, CancellationToken ct)
+    {
+        try
+        {
+            await using var tx = await db.BeginTransactionAsync(ct);
+
+            var payment = await db.Payments
+                .FirstOrDefaultAsync(p => p.Id == paymentId, ct);
+
+            if (payment is null)
+                return;
+
+            payment.MarkInitiationFailed();
+
+            await db.SaveChangesAsync(ct);
+            await tx.CommitAsync(ct);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex,
+                "Failed to mark payment {PaymentId} as initiation-failed after gateway error",
+                paymentId);
+        }
     }
 }

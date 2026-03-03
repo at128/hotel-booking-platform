@@ -24,6 +24,7 @@ public class Payment : Entity
         Amount = amount;
         Method = method;
         TransactionRef = transactionRef;
+        CreatedAtUtc = DateTimeOffset.UtcNow;
     }
 
     public Guid BookingId { get; private set; }
@@ -77,6 +78,27 @@ public class Payment : Entity
 
     public void SetProviderSession(string sessionId)
     {
+        if (string.IsNullOrWhiteSpace(sessionId))
+            throw new ArgumentException("Provider session id cannot be empty.", nameof(sessionId));
+
+        if (!string.IsNullOrWhiteSpace(ProviderSessionId))
+        {
+            if (ProviderSessionId == sessionId)
+                return; 
+
+            throw new InvalidOperationException(
+                $"Payment already has provider session '{ProviderSessionId}'.");
+        }
+
         ProviderSessionId = sessionId;
+    }
+
+    public void MarkInitiationFailed(string? responseJson = null)
+    {
+        if (Status != PaymentStatus.Pending)
+            throw new InvalidOperationException($"Cannot mark initiation failed in {Status} status.");
+
+        Status = PaymentStatus.InitiationFailed;
+        ProviderResponseJson = responseJson;
     }
 }
