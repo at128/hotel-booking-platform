@@ -188,9 +188,13 @@ public sealed class CreateBookingCommandHandler(
             }
 
             // 4) Calculate totals
-            var subtotal = holds.Sum(h => h.HotelRoomType.PricePerNight * nights * h.Quantity);
-            var tax = subtotal * _booking.TaxRate;
-            var total = subtotal + tax;
+            var rawSubtotal = holds.Sum(h => h.HotelRoomType.PricePerNight * nights * h.Quantity);
+            var subtotal = RoundMoney(rawSubtotal);
+
+            var rawTax = subtotal * _booking.TaxRate;
+            var tax = RoundMoney(rawTax);
+
+            var total = RoundMoney(subtotal + tax);
 
             // 5) Create booking + payment
             var bookingNumber = GenerateBookingNumber();
@@ -414,4 +418,7 @@ public sealed class CreateBookingCommandHandler(
                 paymentId);
         }
     }
+
+    private static decimal RoundMoney(decimal amount)
+    => Math.Round(amount, 2, MidpointRounding.AwayFromZero);
 }
