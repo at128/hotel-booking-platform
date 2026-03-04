@@ -3,6 +3,7 @@ using HotelBooking.Application.Common.Models.Payment;
 using HotelBooking.Infrastructure.Settings;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Newtonsoft.Json;
 using Stripe;
 using Stripe.Checkout;
 
@@ -87,10 +88,29 @@ internal sealed class StripePaymentGateway(
     }
 
     public Task<WebhookParseResult> ParseWebhookAsync(
-        string rawPayload,
-        string signature,
-        CancellationToken ct = default)
+    string rawPayload,
+    string signature,
+    CancellationToken ct = default)
     {
+        // Defensive guards for invalid webhook input (not server misconfiguration)
+        if (string.IsNullOrWhiteSpace(rawPayload))
+        {
+            logger.LogWarning("Stripe webhook payload is empty");
+            return Task.FromResult(InvalidWebhook(rawPayload));
+        }
+
+        if (string.IsNullOrWhiteSpace(signature))
+        {
+            logger.LogWarning("Stripe webhook signature header is empty");
+            return Task.FromResult(InvalidWebhook(rawPayload));
+        }
+
+        // This is a server configuration issue, not an invalid webhook request.
+        if (string.IsNullOrWhiteSpace(_settings.WebhookSecret))
+        {
+            throw new InvalidOperationException("Stripe webhook secret is not configured.");
+        }
+
         try
         {
             var stripeEvent = EventUtility.ConstructEvent(
@@ -110,15 +130,24 @@ internal sealed class StripePaymentGateway(
         }
         catch (StripeException ex)
         {
-            logger.LogWarning(ex, "Stripe webhook signature validation failed");
-            return Task.FromResult(new WebhookParseResult(
-                IsSignatureValid: false,
-                EventType: string.Empty,
-                ProviderSessionId: null,
-                TransactionRef: null,
-                RawPayload: rawPayload));
+            logger.LogWarning(ex, "Stripe webhook signature/payload validation failed");
+
+            return Task.FromResult(InvalidWebhook(rawPayload));
+        }
+        catch (JsonException ex)
+        {
+            logger.LogWarning(ex, "Stripe webhook payload JSON is malformed");
+
+            return Task.FromResult(InvalidWebhook(rawPayload));
         }
     }
+
+    private static WebhookParseResult InvalidWebhook(string rawPayload) => new(
+        IsSignatureValid: false,
+        EventType: string.Empty,
+        ProviderSessionId: null,
+        TransactionRef: null,
+        RawPayload: rawPayload);
 
 
     private static (string EventType, string? SessionId, string? TxRef) MapStripeEvent(
