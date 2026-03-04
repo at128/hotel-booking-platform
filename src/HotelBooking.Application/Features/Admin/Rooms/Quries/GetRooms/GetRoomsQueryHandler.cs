@@ -4,7 +4,7 @@ using HotelBooking.Domain.Common.Results;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
-namespace HotelBooking.Application.Features.Admin.Rooms.Query.GetRooms;
+namespace HotelBooking.Application.Features.Admin.Rooms.Quries.GetRooms;
 
 public sealed class GetRoomsQueryHandler(IAppDbContext db)
     : IRequestHandler<GetRoomsQuery, Result<PaginatedAdminResponse<RoomDto>>>
@@ -65,6 +65,6 @@ public sealed class GetRoomsQueryHandler(IAppDbContext db)
             total,
             page,
             pageSize,
-            (page * pageSize) < total);
+            page * pageSize < total);
     }
 }

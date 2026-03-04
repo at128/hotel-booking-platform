@@ -2,7 +2,7 @@
 using HotelBooking.Domain.Common.Results;
 using MediatR;
 
-namespace HotelBooking.Application.Features.Admin.Rooms.Query.GetRooms;
+namespace HotelBooking.Application.Features.Admin.Rooms.Quries.GetRooms;
 
 public sealed record GetRoomsQuery(
     Guid? HotelId,

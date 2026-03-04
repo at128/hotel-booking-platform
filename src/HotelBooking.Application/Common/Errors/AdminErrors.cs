@@ -52,5 +52,18 @@ public static class AdminErrors
             Error.Conflict("Admin.Rooms.HasActiveBookings",
                 "Cannot delete a room type assignment that has confirmed bookings.");
     }
+    public static class RoomTypes
+    {
+        public static Error NotFound(Guid id) =>
+            Error.NotFound("Admin.RoomTypes.NotFound", $"Room type {id} was not found.");
+
+        public static readonly Error AlreadyExists =
+            Error.Conflict("Admin.RoomTypes.AlreadyExists",
+                "A room type with the same name already exists.");
+
+        public static readonly Error HasRelatedHotelAssignments =
+            Error.Conflict("Admin.RoomTypes.HasRelatedHotelAssignments",
+                "Cannot delete a room type that is assigned to one or more hotels.");
+    }
 
 }

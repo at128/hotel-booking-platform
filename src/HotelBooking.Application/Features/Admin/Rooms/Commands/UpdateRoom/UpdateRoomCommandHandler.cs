@@ -5,7 +5,7 @@ using HotelBooking.Domain.Common.Results;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
-namespace HotelBooking.Application.Features.Admin.Rooms.Command.UpdateRoom;
+namespace HotelBooking.Application.Features.Admin.Rooms.Commands.UpdateRoom;
 
 public sealed class UpdateRoomCommandHandler(IAppDbContext db)
     : IRequestHandler<UpdateRoomCommand, Result<RoomDto>>

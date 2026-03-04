@@ -2,7 +2,7 @@
 using HotelBooking.Domain.Common.Results;
 using MediatR;
 
-namespace HotelBooking.Application.Features.Admin.Rooms.Command.CreateRoom;
+namespace HotelBooking.Application.Features.Admin.Rooms.Commands.CreateRoom;
 
 public sealed record CreateRoomCommand(
     Guid HotelId,

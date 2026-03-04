@@ -6,7 +6,7 @@ using HotelBooking.Domain.Hotels;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
-namespace HotelBooking.Application.Features.Admin.Rooms.Command.CreateRoom;
+namespace HotelBooking.Application.Features.Admin.Rooms.Commands.CreateRoom;
 
 public sealed class CreateRoomCommandHandler(IAppDbContext db)
     : IRequestHandler<CreateRoomCommand, Result<RoomDto>>

@@ -5,7 +5,7 @@ using HotelBooking.Domain.Common.Results;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
-namespace HotelBooking.Application.Features.Admin.Rooms.Query.GetRoomById;
+namespace HotelBooking.Application.Features.Admin.Rooms.Quries.GetRoomById;
 
 public sealed class GetRoomByIdQueryHandler(IAppDbContext db)
     : IRequestHandler<GetRoomByIdQuery, Result<RoomDto>>

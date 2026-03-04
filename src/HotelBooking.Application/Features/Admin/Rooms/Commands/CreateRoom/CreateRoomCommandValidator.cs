@@ -1,6 +1,6 @@
 ﻿using FluentValidation;
 
-namespace HotelBooking.Application.Features.Admin.Rooms.Command.CreateRoom;
+namespace HotelBooking.Application.Features.Admin.Rooms.Commands.CreateRoom;
 
 public sealed class CreateRoomCommandValidator : AbstractValidator<CreateRoomCommand>
 {
@@ -22,7 +22,7 @@ public sealed class CreateRoomCommandValidator : AbstractValidator<CreateRoomCom
             .GreaterThanOrEqualTo((short)0);
 
         RuleFor(x => x)
-            .Must(x => (x.AdultCapacity + x.ChildCapacity) > 0)
+            .Must(x => x.AdultCapacity + x.ChildCapacity > 0)
             .WithMessage("At least one occupant must be supported.");
 
         RuleFor(x => x.Description)

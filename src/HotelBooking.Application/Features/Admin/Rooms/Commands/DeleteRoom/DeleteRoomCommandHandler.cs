@@ -5,7 +5,7 @@ using HotelBooking.Domain.Common.Results;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
-namespace HotelBooking.Application.Features.Admin.Rooms.Command.DeleteRoom;
+namespace HotelBooking.Application.Features.Admin.Rooms.Commands.DeleteRoom;
 
 public sealed class DeleteRoomCommandHandler(IAppDbContext db)
     : IRequestHandler<DeleteRoomCommand, Result<Deleted>>

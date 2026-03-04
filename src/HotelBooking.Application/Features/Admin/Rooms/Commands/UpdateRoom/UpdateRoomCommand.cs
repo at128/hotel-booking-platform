@@ -2,7 +2,7 @@
 using HotelBooking.Domain.Common.Results;
 using MediatR;
 
-namespace HotelBooking.Application.Features.Admin.Rooms.Command.UpdateRoom;
+namespace HotelBooking.Application.Features.Admin.Rooms.Commands.UpdateRoom;
 
 public sealed record UpdateRoomCommand(
     Guid Id,
