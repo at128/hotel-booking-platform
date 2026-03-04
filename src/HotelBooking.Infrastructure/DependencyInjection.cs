@@ -4,6 +4,7 @@ using HotelBooking.Infrastructure.BackgroundJobs;
 using HotelBooking.Infrastructure.Data;
 using HotelBooking.Infrastructure.Data.Interceptors;
 using HotelBooking.Infrastructure.Data.Repositories;
+using HotelBooking.Infrastructure.Email;
 using HotelBooking.Infrastructure.Identity;
 using HotelBooking.Infrastructure.Payment;
 using HotelBooking.Infrastructure.Settings;
@@ -49,6 +50,7 @@ public static class DependencyInjection
         services.AddScoped<ICheckoutHoldRepository, CheckoutHoldRepository>();
         services.AddStripePayment(configuration);
 
+        services.AddEmail(configuration);
 
         return services;
     }
@@ -210,5 +212,16 @@ public static class DependencyInjection
         return services;
     }
 
+    private static IServiceCollection AddEmail(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        services.AddOptions<EmailSettings>()
+                .BindConfiguration(EmailSettings.SectionName)
+                .ValidateDataAnnotations()
+                .ValidateOnStart();
 
+        services.AddScoped<IEmailService, SmtpEmailService>(); services.AddScoped<IEmailService, SmtpEmailService>();
+        return services;
+    }
 }
