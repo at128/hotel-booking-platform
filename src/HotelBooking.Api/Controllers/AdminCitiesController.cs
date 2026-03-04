@@ -1,7 +1,6 @@
 ﻿using HotelBooking.Application.Features.Admin.Cities.Command.CreateCity;
 using HotelBooking.Application.Features.Admin.Cities.Command.DeleteCity;
 using HotelBooking.Application.Features.Admin.Cities.Command.UpdateCity;
-using HotelBooking.Application.Features.Admin.Cities.Queries;
 using HotelBooking.Application.Features.Admin.Cities.Queries.GetCities;
 using HotelBooking.Application.Features.Admin.Cities.Query.GetCityById;
 using HotelBooking.Contracts.Admin;

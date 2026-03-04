@@ -1,8 +1,8 @@
-﻿using HotelBooking.Application.Features.Admin.Rooms.Command.CreateRoom;
-using HotelBooking.Application.Features.Admin.Rooms.Command.DeleteRoom;
-using HotelBooking.Application.Features.Admin.Rooms.Command.UpdateRoom;
-using HotelBooking.Application.Features.Admin.Rooms.Query.GetRoomById;
-using HotelBooking.Application.Features.Admin.Rooms.Query.GetRooms;
+﻿using HotelBooking.Application.Features.Admin.Rooms.Commands.CreateRoom;
+using HotelBooking.Application.Features.Admin.Rooms.Commands.DeleteRoom;
+using HotelBooking.Application.Features.Admin.Rooms.Commands.UpdateRoom;
+using HotelBooking.Application.Features.Admin.Rooms.Quries.GetRoomById;
+using HotelBooking.Application.Features.Admin.Rooms.Quries.GetRooms;
 using HotelBooking.Contracts.Admin;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
