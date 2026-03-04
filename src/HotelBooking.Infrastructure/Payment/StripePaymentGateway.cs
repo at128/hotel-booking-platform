@@ -4,8 +4,12 @@ using HotelBooking.Infrastructure.Settings;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
+using Polly;
+using Polly.CircuitBreaker;
+using Polly.Retry;
 using Stripe;
 using Stripe.Checkout;
+using System.Net;
 
 namespace HotelBooking.Infrastructure.Payment;
 
@@ -19,7 +23,7 @@ internal sealed class StripePaymentGateway(
     : IPaymentGateway
 {
     private readonly StripeSettings _settings = options.Value;
-
+    private readonly ResiliencePipeline _stripePipeline = BuildStripePipeline(logger);
     public string ProviderName => "Stripe";
 
     public async Task<PaymentSessionResponse> CreatePaymentSessionAsync(
@@ -75,8 +79,9 @@ internal sealed class StripePaymentGateway(
         };
 
         var service = new SessionService();
-        var session = await service.CreateAsync(sessionOptions, requestOptions, ct);
-
+        var session = await _stripePipeline.ExecuteAsync(
+            async token => await service.CreateAsync(sessionOptions, requestOptions, token),
+            ct);
 
         logger.LogDebug(
             "Stripe session {SessionId} created for booking {BookingNumber}",
@@ -172,8 +177,9 @@ internal sealed class StripePaymentGateway(
 
         try
         {
-            var refund = await service.CreateAsync(refundOptions, requestOptions, ct);
-
+            var refund = await _stripePipeline.ExecuteAsync(
+                async token => await service.CreateAsync(refundOptions, requestOptions, token),
+                ct);
             logger.LogInformation(
                 "Stripe refund {RefundId} created successfully for transaction {TransactionRef}, amount={Amount}",
                 refund.Id,
@@ -184,6 +190,19 @@ internal sealed class StripePaymentGateway(
                 IsSuccess: true,
                 RefundId: refund.Id,
                 ErrorMessage: null);
+        }
+        catch (BrokenCircuitException ex)
+        {
+            logger.LogWarning(
+                ex,
+                "Stripe refund skipped because circuit breaker is open for transaction {TransactionRef}, amount={Amount}",
+                transactionRef,
+                amount);
+
+            return new RefundResponse(
+                IsSuccess: false,
+                RefundId: null,
+                ErrorMessage: "Stripe service is temporarily unavailable. Please retry shortly.");
         }
         catch (StripeException ex)
         {
@@ -257,8 +276,12 @@ internal sealed class StripePaymentGateway(
 
         try
         {
-            await service.ExpireAsync(sessionId, cancellationToken: ct);
-
+            await _stripePipeline.ExecuteAsync(
+                async token =>
+                {
+                    await service.ExpireAsync(sessionId, cancellationToken: token);
+                },
+                ct);
             logger.LogInformation(
                 "Stripe session {SessionId} expired successfully as compensation",
                 sessionId);
@@ -279,6 +302,68 @@ internal sealed class StripePaymentGateway(
         // Defensive rounding to 2 decimals, then convert to integer cents
         var rounded = Math.Round(amount, 2, MidpointRounding.AwayFromZero);
         return checked((long)(rounded * 100m));
+    }
+
+    private static ResiliencePipeline BuildStripePipeline(ILogger<StripePaymentGateway> logger)
+    {
+        var shouldHandle = new PredicateBuilder()
+            .Handle<StripeException>(IsTransientStripeException)
+            .Handle<HttpRequestException>()
+            .Handle<TimeoutException>();
+
+        return new ResiliencePipelineBuilder()
+            .AddRetry(new RetryStrategyOptions
+            {
+                ShouldHandle = shouldHandle,
+                MaxRetryAttempts = 3,
+                Delay = TimeSpan.FromMilliseconds(500),
+                BackoffType = DelayBackoffType.Exponential,
+                UseJitter = true,
+                OnRetry = args =>
+                {
+                    logger.LogWarning(
+                        "Transient Stripe error. Retry attempt {Attempt} after {DelayMs}ms",
+                        args.AttemptNumber + 1,
+                        args.RetryDelay.TotalMilliseconds);
+
+                    return default;
+                }
+            })
+            .AddCircuitBreaker(new CircuitBreakerStrategyOptions
+            {
+                ShouldHandle = shouldHandle,
+                FailureRatio = 0.5,
+                SamplingDuration = TimeSpan.FromSeconds(10),
+                MinimumThroughput = 8,
+                BreakDuration = TimeSpan.FromSeconds(30),
+                OnOpened = _ =>
+                {
+                    logger.LogError("Stripe circuit breaker opened due to repeated transient failures.");
+                    return default;
+                },
+                OnClosed = _ =>
+                {
+                    logger.LogInformation("Stripe circuit breaker closed.");
+                    return default;
+                }
+            })
+            .Build();
+    }
+
+    private static bool IsTransientStripeException(StripeException ex)
+    {
+        var code = (int)ex.HttpStatusCode;
+
+        if (code == 0)
+            return true;
+
+        if (code == (int)HttpStatusCode.RequestTimeout)   // 408
+            return true;
+
+        if (code == (int)HttpStatusCode.TooManyRequests)  // 429
+            return true;
+
+        return code >= 500; // 5xx
     }
 
 }
