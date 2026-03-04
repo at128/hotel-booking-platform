@@ -34,10 +34,10 @@ public sealed class HotelsController(ISender sender) : ControllerBase
             Comment: request.Comment), ct);
 
         if (result.IsError)
-            return Problem(/* result.Errors */);
+            return Problem();
 
         return CreatedAtAction(
-            actionName: nameof(CreateReview), // أو endpoint get review إذا عندك
+            actionName: nameof(CreateReview), 
             routeValues: new { hotelId, version = "1" },
             value: result.Value);
     }
