@@ -149,6 +149,15 @@ public sealed class HandlePaymentWebhookCommandHandler(
             }
             else
             {
+                var bookingRooms = await db.BookingRooms
+                    .AsNoTracking()
+                    .Where(br => br.BookingId == payment.BookingId)
+                    .Select(br => new BookingRoomEmailItem(
+                        br.RoomTypeName,
+                        br.RoomNumber,
+                        br.PricePerNight))
+                    .ToListAsync(ct);
+
                 var emailData = new BookingConfirmationEmailData(
                     BookingNumber: payment.Booking.BookingNumber,
                     HotelName: payment.Booking.HotelName,
@@ -158,7 +167,7 @@ public sealed class HandlePaymentWebhookCommandHandler(
                     Nights: payment.Booking.CheckOut.DayNumber - payment.Booking.CheckIn.DayNumber,
                     TotalAmount: payment.Booking.TotalAmount,
                     TransactionRef: evt.TransactionRef ?? evt.ProviderSessionId ?? string.Empty,
-                    Rooms: []);
+                    Rooms: bookingRooms);
 
                 await emailService.SendBookingConfirmationAsync(
                     toEmail: payment.Booking.UserEmail,

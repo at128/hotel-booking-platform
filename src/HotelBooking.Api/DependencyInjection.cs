@@ -34,6 +34,9 @@ public static class DependencyInjection
         services.AddExceptionHandler<GlobalExceptionHandler>();
         services.AddProblemDetails();
         services.AddMemoryCache();
+
+        services.AddCookieSettings(configuration);
+
         services.Configure<CookieSettings>(
         configuration.GetSection("CookieSettings"));
 
@@ -259,6 +262,22 @@ public static class DependencyInjection
 
         services.AddHostedService<ExpirePendingPaymentsBackgroundService>();
 
+        return services;
+    }
+
+    private static IServiceCollection AddCookieSettings(this IServiceCollection services,IConfiguration configuration)
+    {
+        services.AddOptions<CookieSettings>()
+            .Bind(configuration.GetSection("CookieSettings"))
+            .Validate(s => !string.IsNullOrWhiteSpace(s.RefreshTokenCookieName),
+                "CookieSettings:RefreshTokenCookieName is required.")
+            .Validate(s => s.RefreshTokenExpiryDays is > 0 and <= 90,
+                "CookieSettings:RefreshTokenExpiryDays must be between 1 and 90.")
+            .Validate(s => !string.IsNullOrWhiteSpace(s.SameSite),
+                "CookieSettings:SameSite is required.")
+            .Validate(s => !string.IsNullOrWhiteSpace(s.Path),
+                "CookieSettings:Path is required.")
+            .ValidateOnStart();
         return services;
     }
 }
