@@ -29,6 +29,12 @@ public static class AdminErrors
         public static readonly Error HasRelatedRoomTypes =
             Error.Conflict("Admin.Hotels.HasRelatedRoomTypes",
                 "Cannot delete hotel because it has related room types.");
+
+        public static readonly Error HasActiveBookings =
+            Error.Conflict("Admin.Hotels.HasActiveBookings",
+                "Cannot delete hotel because it Active Bookings.");
+
+        
     }
 
 }
