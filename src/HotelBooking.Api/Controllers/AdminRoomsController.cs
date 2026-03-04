@@ -1,0 +1,97 @@
+﻿using HotelBooking.Application.Features.Admin.Rooms.Command.CreateRoom;
+using HotelBooking.Application.Features.Admin.Rooms.Command.DeleteRoom;
+using HotelBooking.Application.Features.Admin.Rooms.Command.UpdateRoom;
+using HotelBooking.Application.Features.Admin.Rooms.Query.GetRoomById;
+using HotelBooking.Application.Features.Admin.Rooms.Query.GetRooms;
+using HotelBooking.Contracts.Admin;
+using MediatR;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+
+namespace HotelBooking.Api.Controllers;
+
+[Authorize(Roles = "Admin")]
+public sealed class AdminRoomsController(ISender sender) : ApiController
+{
+    [HttpGet]
+    [ProducesResponseType(typeof(PaginatedAdminResponse<RoomDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetRooms(
+        [FromQuery] Guid? hotelId,
+        [FromQuery] Guid? roomTypeId,
+        [FromQuery] string? search,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken ct = default)
+    {
+        var result = await sender.Send(
+            new GetRoomsQuery(hotelId, roomTypeId, search, page, pageSize), ct);
+
+        return result.Match(Ok, Problem);
+    }
+
+    [HttpGet("{id:guid}")]
+    [ProducesResponseType(typeof(RoomDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetRoomById(Guid id, CancellationToken ct)
+    {
+        var result = await sender.Send(new GetRoomByIdQuery(id), ct);
+        return result.Match(Ok, Problem);
+    }
+
+    [HttpPost]
+    [ProducesResponseType(typeof(RoomDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> CreateRoom(
+        [FromBody] CreateRoomRequest request,
+        CancellationToken ct)
+    {
+        var result = await sender.Send(
+            new CreateRoomCommand(
+                request.HotelId,
+                request.RoomTypeId,
+                request.PricePerNight,
+                request.AdultCapacity,
+                request.ChildCapacity,
+                request.Description),
+            ct);
+
+        return result.Match(
+            room => CreatedAtAction(nameof(GetRoomById), new { id = room.Id, version = "1" }, room),
+            Problem);
+    }
+
+    [HttpPut("{id:guid}")]
+    [ProducesResponseType(typeof(RoomDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> UpdateRoom(
+        Guid id,
+        [FromBody] UpdateRoomRequest request,
+        CancellationToken ct)
+    {
+        var result = await sender.Send(
+            new UpdateRoomCommand(
+                id,
+                request.PricePerNight,
+                request.AdultCapacity,
+                request.ChildCapacity,
+                request.Description),
+            ct);
+
+        return result.Match(Ok, Problem);
+    }
+
+    [HttpDelete("{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> DeleteRoom(Guid id, CancellationToken ct)
+    {
+        var result = await sender.Send(new DeleteRoomCommand(id), ct);
+
+        return result.Match(
+            _ => NoContent(),
+            Problem);
+    }
+}
