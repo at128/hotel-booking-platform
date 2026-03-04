@@ -63,10 +63,6 @@ public sealed class WebhooksController(
                 "Webhook request was canceled while processing event {EventType}. Acknowledging to avoid retries.",
                 parsed.EventType);
         }
-        catch (OperationCanceledException) when (ct.IsCancellationRequested)
-        {
-            throw;
-        }
         catch (Exception ex)
         {
             logger.LogError(ex,
