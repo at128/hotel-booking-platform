@@ -1,18 +1,28 @@
-﻿using HotelBooking.Application.Features.Admin.Hotels.Command.CreateHotel;
+﻿using HotelBooking.Api.Contracts.Admin;
+using HotelBooking.Api.Services.Images;
+using HotelBooking.Application.Features.Admin.Hotels.Command.CreateHotel;
 using HotelBooking.Application.Features.Admin.Hotels.Command.DeleteHotel;
 using HotelBooking.Application.Features.Admin.Hotels.Command.UpdateHotel;
+using HotelBooking.Application.Features.Admin.Hotels.Commands.AddHotelImage;
 using HotelBooking.Application.Features.Admin.Hotels.Query.GetHotelById;
 using HotelBooking.Application.Features.Admin.Hotels.Query.GetHotels;
 using HotelBooking.Contracts.Admin;
+using HotelBooking.Contracts.Hotels;
+using HotelBooking.Domain.Common.Constants;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace HotelBooking.Api.Controllers;
 
 [Authorize(Roles = "Admin")]
-public sealed class AdminHotelsController(ISender sender) : ApiController
+public sealed class AdminHotelsController(ISender sender, IHotelImageUploadProcessor imageUploadProcessor) : ApiController
 {
+    private const string AdminUploadsRateLimitPolicy = "admin-uploads";
+    private const long UploadRequestLimitBytes = 6 * 1024 * 1024;
+
+
     [HttpGet]
     [ProducesResponseType(typeof(PaginatedAdminResponse<HotelDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetHotels(
@@ -97,5 +107,68 @@ public sealed class AdminHotelsController(ISender sender) : ApiController
         return result.Match(
             _ => NoContent(),
             Problem);
+    }
+
+    [HttpPost("{id:guid}/images")]
+    [EnableRateLimiting(AdminUploadsRateLimitPolicy)]
+    [Consumes("multipart/form-data")]
+    [RequestSizeLimit(UploadRequestLimitBytes)]
+    [RequestFormLimits(MultipartBodyLengthLimit = UploadRequestLimitBytes)]
+    [ProducesResponseType(typeof(ImageDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status413PayloadTooLarge)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> UploadHotelImage(
+    Guid id,
+    [FromForm] UploadHotelImageForm form,
+    CancellationToken ct)
+    {
+        var hotelResult = await sender.Send(new GetHotelByIdQuery(id), ct);
+        if (hotelResult.IsError)
+            return Problem(hotelResult.Errors);
+
+        StoredHotelImageFile? stored = null;
+
+        try
+        {
+            stored = await imageUploadProcessor.ProcessAndStoreAsync(id, form.Image, ct);
+
+            var result = await sender.Send(
+                new AddHotelImageCommand(
+                    HotelId: id,
+                    Url: stored.RelativeUrl,
+                    Caption: form.Caption,
+                    SortOrder: form.SortOrder),
+                ct);
+
+            if (result.IsError)
+            {
+                imageUploadProcessor.TryDelete(stored.AbsolutePath);
+                return Problem(result.Errors);
+            }
+
+            return CreatedAtAction(
+                nameof(GetHotelById),
+                new { id, version = "1" },
+                result.Value);
+        }
+        catch (ImageUploadValidationException ex)
+        {
+            if (stored is not null)
+                imageUploadProcessor.TryDelete(stored.AbsolutePath);
+
+            return Problem(
+                statusCode: ex.StatusCode,
+                title: "INVALID_IMAGE_UPLOAD",
+                detail: ex.Message);
+        }
+        catch
+        {
+            if (stored is not null)
+                imageUploadProcessor.TryDelete(stored.AbsolutePath);
+
+            throw;
+        }
     }
 }
