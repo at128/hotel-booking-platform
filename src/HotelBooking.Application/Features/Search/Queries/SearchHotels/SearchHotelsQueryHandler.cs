@@ -32,6 +32,7 @@ public sealed class SearchHotelsQueryHandler(IAppDbContext context)
     {
         var query = context.Hotels
             .AsNoTracking()
+            .AsSplitQuery()
             .Include(h => h.City)
             .Include(h => h.HotelServices).ThenInclude(hs => hs.Service)
             .AsQueryable();

@@ -68,5 +68,7 @@
     <!-- Payment -->
     <PackageVersion Include="Stripe.net" Version="47.3.0" />
     <PackageVersion Include="Mailjet.Client" Version="3.1" />
+        <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.4" />
+
   </ItemGroup>
 </Project>
