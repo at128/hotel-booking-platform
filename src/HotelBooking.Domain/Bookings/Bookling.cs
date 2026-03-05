@@ -1,11 +1,6 @@
 ﻿using HotelBooking.Domain.Bookings.Enums;
 using HotelBooking.Domain.Common;
 using HotelBooking.Domain.Hotels;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace HotelBooking.Domain.Bookings
 {
@@ -37,12 +32,12 @@ namespace HotelBooking.Domain.Bookings
             CheckOut = checkOut;
             TotalAmount = totalAmount;
             Notes = notes;
+            Status = BookingStatus.Pending;
         }
 
         public string BookingNumber { get; private set; } = null!; // e.g. "BK-20260219-A7X3"
         public Guid UserId { get; private set; }
         public Guid HotelId { get; private set; }
-
 
         public string HotelName { get; private set; } = null!;
         public string HotelAddress { get; private set; } = null!;
@@ -64,10 +59,26 @@ namespace HotelBooking.Domain.Bookings
         public ICollection<Payment> Payments { get; private set; } = [];
         public Cancellation? Cancellation { get; private set; }
 
+        /// <summary>
+        /// Normal transition after successful payment webhook / checkout completion.
+        /// </summary>
         public void Confirm()
         {
             if (Status != BookingStatus.Pending)
                 throw new InvalidOperationException($"Cannot confirm booking in {Status} status.");
+
+            Status = BookingStatus.Confirmed;
+        }
+
+        /// <summary>
+        /// Recovery transition for late payment success webhook after local timeout marked booking as Failed.
+        /// Used by webhook reconciliation only.
+        /// </summary>
+        public void RecoverConfirmFromFailed()
+        {
+            if (Status != BookingStatus.Failed)
+                throw new InvalidOperationException($"Cannot recover-confirm booking in {Status} status.");
+
             Status = BookingStatus.Confirmed;
         }
 
@@ -75,6 +86,7 @@ namespace HotelBooking.Domain.Bookings
         {
             if (Status != BookingStatus.Pending)
                 throw new InvalidOperationException($"Cannot fail booking in {Status} status.");
+
             Status = BookingStatus.Failed;
         }
 
@@ -82,6 +94,7 @@ namespace HotelBooking.Domain.Bookings
         {
             if (Status != BookingStatus.Confirmed)
                 throw new InvalidOperationException($"Cannot check in booking in {Status} status.");
+
             Status = BookingStatus.CheckedIn;
         }
 
@@ -89,6 +102,7 @@ namespace HotelBooking.Domain.Bookings
         {
             if (Status != BookingStatus.CheckedIn)
                 throw new InvalidOperationException($"Cannot complete booking in {Status} status.");
+
             Status = BookingStatus.Completed;
         }
 
@@ -96,13 +110,16 @@ namespace HotelBooking.Domain.Bookings
         {
             if (Status != BookingStatus.Confirmed)
                 throw new InvalidOperationException($"Cannot cancel booking in {Status} status.");
+
             Status = BookingStatus.Cancelled;
         }
 
         public void RecalculateTotal(decimal newTotal)
         {
+            if (newTotal < 0)
+                throw new ArgumentOutOfRangeException(nameof(newTotal), "Booking total cannot be negative.");
+
             TotalAmount = newTotal;
         }
     }
-
 }

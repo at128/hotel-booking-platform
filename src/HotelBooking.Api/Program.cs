@@ -16,8 +16,10 @@ AddHealthChecks(builder);
 
 var app = builder.Build();
 
-await ApplyMigrationsAndSeedAsync(app);
-
+if (!app.Environment.IsEnvironment("Testing"))
+{
+    await ApplyMigrationsAndSeedAsync(app);
+}
 
 
 app.UseCoreMiddlewares();
