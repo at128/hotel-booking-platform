@@ -1,10 +1,13 @@
-﻿using HotelBooking.Api.Infrastructure;
+﻿using HotelBooking.Api.BackgroundJobs;
+using HotelBooking.Api.Infrastructure;
 using HotelBooking.Api.Services;
+using HotelBooking.Api.Services.Images;
 using HotelBooking.Application.Common.Interfaces;
 using HotelBooking.Infrastructure.Settings;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Configuration;
 using Serilog;
+using System.Security.Claims;
 using System.Threading.RateLimiting;
 
 namespace HotelBooking.Api;
@@ -13,6 +16,8 @@ public static class DependencyInjection
 {
     private const string FrontendCorsPolicy = "Frontend";
     private const string AuthRateLimitPolicy = "auth";
+    private const string AdminUploadsRateLimitPolicy = "admin-uploads";
+
 
     public static IServiceCollection AddPresentation(
         this IServiceCollection services,
@@ -33,15 +38,28 @@ public static class DependencyInjection
         services.AddExceptionHandler<GlobalExceptionHandler>();
         services.AddProblemDetails();
         services.AddMemoryCache();
+
+        services.AddCookieSettings(configuration);
+
         services.Configure<CookieSettings>(
         configuration.GetSection("CookieSettings"));
 
+        services.AddExpirePendingPaymentsJobSettings(configuration);
+        services.AddHotelImageUploadServices(configuration);
 
         return services;
     }
 
     public static WebApplication UseCoreMiddlewares(this WebApplication app)
     {
+        if (!app.Environment.IsDevelopment())
+        {
+            app.UseHsts();
+        }
+        app.UseHttpsRedirection();
+        app.UseStaticFiles();
+        app.UseAuthentication();
+        app.UseAuthorization();
         app.UseDiagnosticsAndErrorHandling();
         app.UseSwaggerAndHsts();
         app.UseHttpSecurityPipeline();
@@ -116,6 +134,25 @@ public static class DependencyInjection
                     QueueLimit = 0,
                     QueueProcessingOrder = QueueProcessingOrder.OldestFirst
                 });
+            });
+
+            options.AddPolicy(AdminUploadsRateLimitPolicy, httpContext =>
+            {
+                var userId = httpContext.User?.FindFirstValue(ClaimTypes.NameIdentifier);
+                var key = !string.IsNullOrWhiteSpace(userId)
+                    ? $"user:{userId}"
+                    : $"ip:{GetClientIp(httpContext)}";
+
+                return RateLimitPartition.GetFixedWindowLimiter(
+                    partitionKey: $"admin-upload:{key}",
+                    factory: _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 100,                 
+                        Window = TimeSpan.FromMinutes(1),
+                        AutoReplenishment = true,
+                        QueueLimit = 0,
+                        QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+                    });
             });
         });
 
@@ -234,5 +271,56 @@ public static class DependencyInjection
         app.UseAuthorization();
 
         return app;
+    }
+
+    private static IServiceCollection AddExpirePendingPaymentsJobSettings(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        services
+        .AddOptions<ExpirePendingPaymentsJobSettings>()
+        .Bind(configuration.GetSection(ExpirePendingPaymentsJobSettings.SectionName))
+        .Validate(s => s.IntervalSeconds > 0, "IntervalSeconds must be > 0.")
+        .Validate(s => s.BatchSize > 0, "BatchSize must be > 0.")
+        .ValidateOnStart();
+
+        services.AddHostedService<ExpirePendingPaymentsBackgroundService>();
+
+        return services;
+    }
+
+    private static IServiceCollection AddCookieSettings(this IServiceCollection services,IConfiguration configuration)
+    {
+        services.AddOptions<CookieSettings>()
+            .Bind(configuration.GetSection("CookieSettings"))
+            .Validate(s => !string.IsNullOrWhiteSpace(s.RefreshTokenCookieName),
+                "CookieSettings:RefreshTokenCookieName is required.")
+            .Validate(s => s.RefreshTokenExpiryDays is > 0 and <= 90,
+                "CookieSettings:RefreshTokenExpiryDays must be between 1 and 90.")
+            .Validate(s => !string.IsNullOrWhiteSpace(s.SameSite),
+                "CookieSettings:SameSite is required.")
+            .Validate(s => !string.IsNullOrWhiteSpace(s.Path),
+                "CookieSettings:Path is required.")
+            .ValidateOnStart();
+        return services;
+    }
+
+    private static IServiceCollection AddHotelImageUploadServices(
+    this IServiceCollection services,
+    IConfiguration configuration)
+    {
+        services.AddOptions<HotelImageUploadOptions>()
+            .Bind(configuration.GetSection(HotelImageUploadOptions.SectionName))
+            .Validate(o => o.MaxFileBytes is > 0 and <= 10 * 1024 * 1024, "MaxFileBytes must be between 1 byte and 10 MB.")
+            .Validate(o => o.MaxWidth is > 0 and <= 8192, "MaxWidth must be between 1 and 8192.")
+            .Validate(o => o.MaxHeight is > 0 and <= 8192, "MaxHeight must be between 1 and 8192.")
+            .Validate(o => o.MaxPixels is > 0 and <= 40_000_000, "MaxPixels must be reasonable.")
+            .Validate(o => o.JpegQuality is >= 60 and <= 95, "JpegQuality must be between 60 and 95.")
+            .Validate(o => o.MaxImagesPerHotel is > 0 and <= 500, "MaxImagesPerHotel must be between 1 and 500.")
+            .ValidateOnStart();
+
+        services.AddScoped<IHotelImageUploadProcessor, HotelImageUploadProcessor>();
+
+        return services;
     }
 }

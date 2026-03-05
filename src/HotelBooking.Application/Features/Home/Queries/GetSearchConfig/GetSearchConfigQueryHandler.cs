@@ -1,5 +1,5 @@
 ﻿using HotelBooking.Application.Common.Interfaces;
-using HotelBooking.Application.Common.Settings;
+using HotelBooking.Application.Settings;
 using HotelBooking.Contracts.Home;
 using HotelBooking.Domain.Common.Results;
 using MediatR;

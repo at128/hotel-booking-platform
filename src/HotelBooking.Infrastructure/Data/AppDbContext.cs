@@ -11,6 +11,9 @@ using MediatR;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
+using System.Data;
+
 
 namespace HotelBooking.Infrastructure.Data;
 
@@ -35,7 +38,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, IMediator medi
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
     public DbSet<CartItem> CartItems => Set<CartItem>();
-    public DbSet<Payment> Payments => Set<Payment>();
+    public DbSet<HotelBooking.Domain.Bookings.Payment> Payments => Set<HotelBooking.Domain.Bookings.Payment>();
     public DbSet<Cancellation> Cancellations => Set<Cancellation>();
     public DbSet<BookingService> BookingServices => Set<BookingService>();
     public DbSet<Review> Reviews => Set<Review>();
@@ -44,6 +47,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, IMediator medi
         await DispatchDomainEventsAsync(ct);
         return await base.SaveChangesAsync(ct);
     }
+
+    public Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken ct)
+        => Database.BeginTransactionAsync(ct);
+
+    public Task<IDbContextTransaction> BeginTransactionAsync(IsolationLevel isolationLevel, CancellationToken ct)
+        => Database.BeginTransactionAsync(isolationLevel, ct);
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -106,4 +115,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, IMediator medi
         foreach (var domainEvent in domainEvents)
             await mediator.Publish(domainEvent, ct);
     }
+
+    public Task ReloadEntityAsync<TEntity>(TEntity entity, CancellationToken ct)
+    where TEntity : class
+    => Entry(entity).ReloadAsync(ct);
+
+    public void ClearChangeTracker()
+        => ChangeTracker.Clear();
 }

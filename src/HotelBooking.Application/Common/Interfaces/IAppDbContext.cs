@@ -5,6 +5,8 @@ using HotelBooking.Domain.Reviews;
 using HotelBooking.Domain.Rooms;
 using HotelBooking.Domain.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
+using System.Data;
 namespace HotelBooking.Application.Common.Interfaces;
 public interface IAppDbContext
 {
@@ -31,4 +33,11 @@ public interface IAppDbContext
     DbSet<Review> Reviews { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
+
+    Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken ct);
+    Task<IDbContextTransaction> BeginTransactionAsync(IsolationLevel isolationLevel, CancellationToken ct);
+
+    Task ReloadEntityAsync<TEntity>(TEntity entity, CancellationToken ct) where TEntity : class;
+    void ClearChangeTracker();
+
 }

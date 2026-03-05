@@ -1,6 +1,6 @@
 ﻿using HotelBooking.Application.Common.Interfaces;
 using HotelBooking.Application.Common.Models;
-using HotelBooking.Application.Common.Settings;
+using HotelBooking.Application.Settings;
 using HotelBooking.Contracts.Auth;
 using HotelBooking.Domain.Common.Results;
 using MediatR;

@@ -76,6 +76,11 @@ namespace HotelBooking.Infrastructure.Data.Migrations
                     b.Property<decimal>("TotalAmount")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<string>("UserEmail")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
                     b.Property<Guid>("UserId")
                         .HasColumnType("uniqueidentifier");
 
@@ -291,6 +296,12 @@ namespace HotelBooking.Infrastructure.Data.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(30)
@@ -307,11 +318,11 @@ namespace HotelBooking.Infrastructure.Data.Migrations
                     b.HasIndex("ProviderSessionId")
                         .HasFilter("[ProviderSessionId] IS NOT NULL");
 
-                    b.HasIndex("Status");
-
                     b.HasIndex("TransactionRef")
                         .IsUnique()
                         .HasFilter("[TransactionRef] IS NOT NULL");
+
+                    b.HasIndex("Status", "CreatedAtUtc");
 
                     b.ToTable("payments", (string)null);
                 });
@@ -447,7 +458,9 @@ namespace HotelBooking.Infrastructure.Data.Migrations
 
                     b.HasIndex("DisplayOrder");
 
-                    b.HasIndex("HotelId", "HotelRoomTypeId");
+                    b.HasIndex("HotelId");
+
+                    b.HasIndex("HotelRoomTypeId", "HotelId");
 
                     b.ToTable("featured_deals", (string)null);
                 });
@@ -692,7 +705,7 @@ namespace HotelBooking.Infrastructure.Data.Migrations
 
                     b.HasIndex("UserId", "VisitedAtUtc")
                         .IsDescending(false, true)
-                        .HasDatabaseName("IX_HotelVisit_User_VisitedAt");
+                        .HasDatabaseName("IX_hotel_visits_user_recent");
 
                     b.ToTable("hotel_visits", (string)null);
                 });
@@ -1320,8 +1333,8 @@ namespace HotelBooking.Infrastructure.Data.Migrations
 
                     b.HasOne("HotelBooking.Domain.Hotels.HotelRoomType", "HotelRoomType")
                         .WithMany()
-                        .HasForeignKey("HotelId", "HotelRoomTypeId")
-                        .HasPrincipalKey("HotelId", "Id")
+                        .HasForeignKey("HotelRoomTypeId", "HotelId")
+                        .HasPrincipalKey("Id", "HotelId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 

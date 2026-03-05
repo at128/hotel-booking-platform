@@ -4,9 +4,9 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace HotelBooking.Infrastructure.Data.Configurations;
 
-public sealed class PaymentConfiguration : IEntityTypeConfiguration<Payment>
+public sealed class PaymentConfiguration : IEntityTypeConfiguration<HotelBooking.Domain.Bookings.Payment>
 {
-    public void Configure(EntityTypeBuilder<Payment> builder)
+    public void Configure(EntityTypeBuilder<HotelBooking.Domain.Bookings.Payment> builder)
     {
         builder.ToTable("payments");
 
@@ -42,13 +42,16 @@ public sealed class PaymentConfiguration : IEntityTypeConfiguration<Payment>
         builder.Property(x => x.PaidAtUtc)
             .HasColumnType("datetimeoffset");
 
+        builder.Property(x => x.RowVersion)
+            .IsRowVersion();
+
         builder.HasOne(x => x.Booking)
             .WithMany(b => b.Payments)
             .HasForeignKey(x => x.BookingId)
             .OnDelete(DeleteBehavior.Cascade);
 
         builder.HasIndex(x => x.BookingId);
-        builder.HasIndex(x => x.Status);
+        builder.HasIndex(x => new { x.Status, x.CreatedAtUtc });
 
         builder.HasIndex(x => x.TransactionRef)
             .IsUnique()

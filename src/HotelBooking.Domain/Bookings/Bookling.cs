@@ -20,6 +20,7 @@ namespace HotelBooking.Domain.Bookings
             Guid hotelId,
             string hotelName,
             string hotelAddress,
+            string userEmail,
             DateOnly checkIn,
             DateOnly checkOut,
             decimal totalAmount,
@@ -31,6 +32,7 @@ namespace HotelBooking.Domain.Bookings
             HotelId = hotelId;
             HotelName = hotelName;
             HotelAddress = hotelAddress;
+            UserEmail = userEmail;
             CheckIn = checkIn;
             CheckOut = checkOut;
             TotalAmount = totalAmount;
@@ -41,8 +43,10 @@ namespace HotelBooking.Domain.Bookings
         public Guid UserId { get; private set; }
         public Guid HotelId { get; private set; }
 
+
         public string HotelName { get; private set; } = null!;
         public string HotelAddress { get; private set; } = null!;
+        public string UserEmail { get; private set; } = null!;
 
         public DateOnly CheckIn { get; private set; }
         public DateOnly CheckOut { get; private set; }

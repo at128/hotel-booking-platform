@@ -33,6 +33,8 @@ RUN addgroup --system --gid 1001 appgroup \
     && adduser --system --uid 1001 --ingroup appgroup --no-create-home appuser
 
 COPY --from=publish /app/publish .
+RUN mkdir -p /app/wwwroot/images \
+    && chown -R appuser:appgroup /app/wwwroot
 USER appuser
 
 EXPOSE 8080

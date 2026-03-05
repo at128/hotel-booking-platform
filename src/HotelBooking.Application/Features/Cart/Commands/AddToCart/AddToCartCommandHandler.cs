@@ -45,13 +45,19 @@ public sealed class AddToCartCommandHandler(IAppDbContext db)
         var existingItem = existingItems
             .FirstOrDefault(c => c.HotelRoomTypeId == cmd.HotelRoomTypeId);
 
+        // FIX #1: lost update -> atomic increment in DB
         if (existingItem is not null)
         {
-            var newQty = existingItem.Quantity + cmd.Quantity;
-            existingItem.UpdateQuantity(newQty);
-            await db.SaveChangesAsync(ct);
+            await db.CartItems
+                .Where(c => c.Id == existingItem.Id)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(c => c.Quantity, c => c.Quantity + cmd.Quantity), ct);
 
-            return MapToDto(existingItem, roomType, nights);
+            var updatedItem = await db.CartItems
+                .AsNoTracking()
+                .FirstAsync(c => c.Id == existingItem.Id, ct);
+
+            return MapToDto(updatedItem, roomType, nights);
         }
 
         var cartItem = new CartItem(
@@ -64,9 +70,47 @@ public sealed class AddToCartCommandHandler(IAppDbContext db)
             quantity: cmd.Quantity);
 
         db.CartItems.Add(cartItem);
-        await db.SaveChangesAsync(ct);
 
-        return MapToDto(cartItem, roomType, nights);
+        try
+        {
+            await db.SaveChangesAsync(ct);
+            return MapToDto(cartItem, roomType, nights);
+        }
+        catch (DbUpdateException ex) when (IsLikelyUniqueConstraintViolation(ex))
+        {
+            db.CartItems.Remove(cartItem);
+
+            var affected = await db.CartItems
+                .Where(c =>
+                    c.UserId == cmd.UserId &&
+                    c.HotelRoomTypeId == cmd.HotelRoomTypeId &&
+                    c.CheckIn == cmd.CheckIn &&
+                    c.CheckOut == cmd.CheckOut)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(c => c.Quantity, c => c.Quantity + cmd.Quantity), ct);
+
+            if (affected == 0)
+                throw; 
+
+            var mergedItem = await db.CartItems
+                .AsNoTracking()
+                .FirstAsync(c =>
+                    c.UserId == cmd.UserId &&
+                    c.HotelRoomTypeId == cmd.HotelRoomTypeId &&
+                    c.CheckIn == cmd.CheckIn &&
+                    c.CheckOut == cmd.CheckOut, ct);
+
+            return MapToDto(mergedItem, roomType, nights);
+        }
+    }
+
+    private static bool IsLikelyUniqueConstraintViolation(DbUpdateException ex)
+    {
+        var msg = ex.InnerException?.Message ?? ex.Message;
+
+        return msg.Contains("duplicate key", StringComparison.OrdinalIgnoreCase)
+            || msg.Contains("UNIQUE KEY", StringComparison.OrdinalIgnoreCase)
+            || msg.Contains("unique constraint", StringComparison.OrdinalIgnoreCase);
     }
 
     private static CartItemDto MapToDto(

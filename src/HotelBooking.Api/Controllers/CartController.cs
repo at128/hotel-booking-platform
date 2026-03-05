@@ -2,7 +2,7 @@
 using HotelBooking.Application.Features.Cart.Commands.ClearCart;
 using HotelBooking.Application.Features.Cart.Commands.RemoveCartItem;
 using HotelBooking.Application.Features.Cart.Commands.UpdateCartItem;
-using HotelBooking.Application.Features.Cart.Queries.GetCart;
+using HotelBooking.Application.Features.Cart.Queries;
 using HotelBooking.Contracts.Cart;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;

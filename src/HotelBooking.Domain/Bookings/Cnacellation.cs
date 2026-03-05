@@ -24,6 +24,7 @@ namespace HotelBooking.Domain.Bookings
             Reason = reason;
             RefundAmount = refundAmount;
             RefundPercentage = refundPercentage;
+            CancelledAtUtc = DateTimeOffset.UtcNow;
         }
 
         public Guid BookingId { get; private set; } // UNIQUE — one cancellation per booking

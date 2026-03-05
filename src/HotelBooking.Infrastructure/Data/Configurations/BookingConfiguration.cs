@@ -1,12 +1,13 @@
 ﻿using HotelBooking.Domain.Bookings;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using static HotelBooking.Domain.Common.Constants.HotelBookingConstants;
 
 namespace HotelBooking.Infrastructure.Data.Configurations;
 
-public sealed class BookingConfiguration : IEntityTypeConfiguration<Booking>
+public sealed class BookingConfiguration : IEntityTypeConfiguration<Domain.Bookings.Booking>
 {
-    public void Configure(EntityTypeBuilder<Booking> builder)
+    public void Configure(EntityTypeBuilder<Domain.Bookings.Booking> builder)
     {
         builder.ToTable("bookings");
 
@@ -38,6 +39,10 @@ public sealed class BookingConfiguration : IEntityTypeConfiguration<Booking>
         builder.Property(b => b.HotelAddress)
             .HasMaxLength(500)
             .IsRequired();
+
+        builder.Property(b => b.UserEmail)
+                .HasMaxLength(FieldLengths.EmailMaxLength) // = 256
+                .IsRequired();
 
         builder.Property(b => b.TotalAmount)
             .HasColumnType("decimal(18,2)")

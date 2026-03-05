@@ -8,11 +8,12 @@ namespace HotelBooking.Domain.Bookings.Enums
 {
     public enum PaymentStatus
     {
-        Pending,
-        Succeeded,
-        Failed,
-        Refunded,
-        PartiallyRefunded
+        Pending = 0,
+        InitiationFailed = 1,
+        Succeeded = 2,
+        Failed = 3,
+        Refunded = 4,
+        PartiallyRefunded = 5
     }
 
 }

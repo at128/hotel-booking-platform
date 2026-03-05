@@ -3,7 +3,7 @@ using HotelBooking.Domain.Hotels;
 
 namespace HotelBooking.Domain.Services
 {
-    public class Service : Entity
+    public class Service : Entity,ISoftDeletable
     {
         private Service() { }
 
@@ -18,8 +18,10 @@ namespace HotelBooking.Domain.Services
         public string? Description { get; private set; }
         public DateTimeOffset CreatedAtUtc { get; set; }
         public DateTimeOffset UpdatedAtUtc { get; set; }
+        
 
         public ICollection<HotelService> HotelServices { get; private set; } = [];
+        public DateTimeOffset? DeletedAtUtc { get; set; }
 
         public void Update(string name, string? description)
         {

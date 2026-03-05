@@ -1,6 +1,7 @@
 ﻿using HotelBooking.Application.Common.Interfaces;
 using HotelBooking.Domain.Bookings;
 using HotelBooking.Domain.Bookings.Enums;
+using HotelBooking.Domain.Rooms;
 using HotelBooking.Infrastructure.Data;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
@@ -37,6 +38,7 @@ public sealed class CheckoutHoldRepository(AppDbContext context)
                 var totalRooms = await context.Rooms
                     .Where(r =>
                         r.HotelRoomTypeId == req.HotelRoomTypeId &&
+                         r.Status == RoomStatus.Available &&
                         r.DeletedAtUtc == null)
                     .CountAsync(ct);
 

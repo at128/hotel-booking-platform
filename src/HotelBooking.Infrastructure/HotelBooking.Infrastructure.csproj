@@ -10,6 +10,7 @@
 		<ProjectReference Include="..\HotelBooking.Domain\HotelBooking.Domain.csproj" />
 	</ItemGroup>
 	<ItemGroup>
+		<PackageReference Include="MailKit" />
 		<PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
 		<PackageReference Include="Microsoft.AspNetCore.Authorization" />
 		<PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" />
@@ -23,8 +24,11 @@
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
 		<PackageReference Include="Microsoft.Extensions.Caching.Hybrid" />
+		<PackageReference Include="Polly" />
 		<PackageReference Include="Serilog.AspNetCore" />
 		<PackageReference Include="Serilog.Sinks.Seq" />
 		<PackageReference Include="System.IdentityModel.Tokens.Jwt" />
+
+		<PackageReference Include="Stripe.net" />
 	</ItemGroup>
 </Project>
