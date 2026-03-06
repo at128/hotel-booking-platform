@@ -5,6 +5,7 @@ using MediatR;
 namespace HotelBooking.Application.Features.Search.Queries.SearchHotels;
 
 public sealed record SearchHotelsQuery(
+    string? Query,
     string? City,
     DateOnly? CheckIn,
     DateOnly? CheckOut,
@@ -13,9 +14,9 @@ public sealed record SearchHotelsQuery(
     int? NumberOfRooms,
     decimal? MinPrice,
     decimal? MaxPrice,
-    int? MinStarRating,
-    List<string>? Amenities,
+    short? MinStarRating,
+    IReadOnlyCollection<string>? Amenities,
     string? SortBy,
     string? Cursor,
-    int Limit
-) : IRequest<Result<SearchHotelsResponse>>;
+    int Limit = 20)
+    : IRequest<Result<SearchHotelsResponse>>;

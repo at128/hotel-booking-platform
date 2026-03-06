@@ -1,6 +1,9 @@
-﻿namespace HotelBooking.Contracts.Search;
+﻿using System.Text.Json.Serialization;
+
+namespace HotelBooking.Contracts.Search;
 
 public sealed record SearchHotelsRequest(
+    string? Query,
     string? City,
     DateOnly? CheckIn,
     DateOnly? CheckOut,
@@ -9,9 +12,8 @@ public sealed record SearchHotelsRequest(
     int? NumberOfRooms,
     decimal? MinPrice,
     decimal? MaxPrice,
-    int? MinStarRating,
-    List<string>? Amenities,
+    short? MinStarRating,
+    IReadOnlyCollection<string>? Amenities,
     string? SortBy,
     string? Cursor,
-    int? Limit
-);
+    int Limit = 20);

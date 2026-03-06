@@ -34,10 +34,11 @@ public sealed class SearchHotelsQueryHandler(IAppDbContext context)
             .AsNoTracking()
             .AsSplitQuery()
             .Include(h => h.City)
-            .Include(h => h.HotelServices).ThenInclude(hs => hs.Service)
+            .Include(h => h.HotelServices)
+                .ThenInclude(hs => hs.Service)
             .AsQueryable();
 
-        ApplyCityFilter();
+        ApplyTextSearchFilter();
         ApplyStarRatingFilter();
         ApplyPriceRangeFilter();
         ApplyOccupancyAndAvailabilityFilter();
@@ -83,14 +84,20 @@ public sealed class SearchHotelsQueryHandler(IAppDbContext context)
 
         return new SearchHotelsResponse(items, nextCursor, hasMore, limit);
 
-
-        void ApplyCityFilter()
+        void ApplyTextSearchFilter()
         {
-            if (string.IsNullOrWhiteSpace(q.City))
+            var searchText = !string.IsNullOrWhiteSpace(q.Query)
+                ? q.Query
+                : q.City;
+
+            if (string.IsNullOrWhiteSpace(searchText))
                 return;
 
-            var city = Normalize(q.City);
-            query = query.Where(h => h.City.Name.ToLower().Contains(city));
+            var term = Normalize(searchText);
+
+            query = query.Where(h =>
+                h.Name.ToLower().Contains(term) ||
+                h.City.Name.ToLower().Contains(term));
         }
 
         void ApplyStarRatingFilter()
@@ -124,7 +131,6 @@ public sealed class SearchHotelsQueryHandler(IAppDbContext context)
                 var requiredRooms = Math.Max(DefaultRequiredRooms, q.NumberOfRooms ?? DefaultRequiredRooms);
                 var now = DateTimeOffset.UtcNow;
 
-                // Capacity + Availability must be satisfied by the SAME room type
                 query = query.Where(h => h.HotelRoomTypes.Any(rt =>
                     (!hasOccupancyFilter || (rt.AdultCapacity >= adults && rt.ChildCapacity >= children)) &&
                     (
@@ -151,7 +157,6 @@ public sealed class SearchHotelsQueryHandler(IAppDbContext context)
                 return;
             }
 
-            // No dates provided => capacity-only filtering (if occupancy requested)
             if (!hasOccupancyFilter)
                 return;
 
@@ -223,7 +228,6 @@ public sealed class SearchHotelsQueryHandler(IAppDbContext context)
                     (h.AverageRating == (double)cursor.Value && h.Id.CompareTo(cursor.Id) > 0))
             };
         }
-
     }
 
     private static SortMode ParseSortMode(string? sortBy)

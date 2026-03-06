@@ -6,12 +6,21 @@ public sealed class SearchHotelsQueryValidator : AbstractValidator<SearchHotelsQ
 {
     public SearchHotelsQueryValidator()
     {
+        RuleFor(x => x.Query)
+            .MaximumLength(200)
+            .When(x => !string.IsNullOrWhiteSpace(x.Query));
+
+        RuleFor(x => x.City)
+            .MaximumLength(200)
+            .When(x => !string.IsNullOrWhiteSpace(x.City));
+
         RuleFor(x => x.Limit)
             .InclusiveBetween(1, 50)
             .WithMessage("Limit must be between 1 and 50.");
 
         RuleFor(x => x.MinStarRating)
-            .InclusiveBetween(1, 5)
+            .GreaterThan((short)1)
+            .LessThan((short)5)
             .When(x => x.MinStarRating.HasValue)
             .WithMessage("MinStarRating must be between 1 and 5.");
 
