@@ -1,5 +1,6 @@
 ﻿using HotelBooking.Application.Common.Errors;
 using HotelBooking.Application.Common.Interfaces;
+using HotelBooking.Domain.Bookings.Enums;
 using HotelBooking.Domain.Common.Results;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -20,7 +21,8 @@ public sealed class DeleteHotelCommandHandler(IAppDbContext db)
         // Guard: do not allow deleting a hotel that has bookings
         var hasBookings = await db.Bookings
             .AsNoTracking()
-            .AnyAsync(b => b.HotelId == cmd.Id, ct);
+            .AnyAsync(b => b.HotelId == cmd.Id &&
+                (b.Status == BookingStatus.Pending || b.Status == BookingStatus.Confirmed), ct);
 
         if (hasBookings)
             return AdminErrors.Hotels.HasActiveBookings;
