@@ -38,53 +38,58 @@ public sealed class RefreshTokenRepository(AppDbContext context) : IRefreshToken
     /// Returns false if old token was already used → reuse attack detected.
     /// </summary>
     public async Task<bool> RotateAsync(
-        Guid oldTokenId,
-        string oldTokenFamily,
-        RefreshTokenData newToken,
-        DateTimeOffset nowUtc,
-        CancellationToken ct = default)
+    Guid oldTokenId,
+    string oldTokenFamily,
+    RefreshTokenData newToken,
+    DateTimeOffset nowUtc,
+    CancellationToken ct = default)
     {
-        await using IDbContextTransaction tx =
-            await context.Database.BeginTransactionAsync(ct);
+        var strategy = context.Database.CreateExecutionStrategy();
 
-        try
+        return await strategy.ExecuteAsync(async () =>
         {
-            var affected = await context.RefreshTokens
-                .Where(t =>
-                    t.Id == oldTokenId &&
-                    !t.IsUsed &&
-                    !t.IsRevoked &&
-                    t.ExpiresAt > nowUtc)
-                .ExecuteUpdateAsync(s => s
-                    .SetProperty(t => t.IsUsed, true)
-                    .SetProperty(t => t.ReplacedByTokenHash, newToken.TokenHash),
-                    ct);
+            await using var tx = await context.Database.BeginTransactionAsync(ct);
 
-            if (affected == 0)
+            try
+            {
+                var affected = await context.RefreshTokens
+                    .Where(t =>
+                        t.Id == oldTokenId &&
+                        t.Family == oldTokenFamily &&
+                        !t.IsUsed &&
+                        !t.IsRevoked &&
+                        t.ExpiresAt > nowUtc)
+                    .ExecuteUpdateAsync(s => s
+                        .SetProperty(t => t.IsUsed, true)
+                        .SetProperty(t => t.ReplacedByTokenHash, newToken.TokenHash),
+                        ct);
+
+                if (affected == 0)
+                {
+                    await tx.RollbackAsync(ct);
+                    return false;
+                }
+
+                var newEntity = new RefreshToken(
+                    id: newToken.Id,
+                    userId: newToken.UserId,
+                    tokenHash: newToken.TokenHash,
+                    family: newToken.Family,
+                    expiresAt: newToken.ExpiresAt,
+                    deviceInfo: newToken.DeviceInfo);
+
+                context.RefreshTokens.Add(newEntity);
+                await context.SaveChangesAsync(ct);
+
+                await tx.CommitAsync(ct);
+                return true;
+            }
+            catch
             {
                 await tx.RollbackAsync(ct);
-                return false;
+                throw;
             }
-
-            var newEntity = new RefreshToken(
-                id: newToken.Id,
-                userId: newToken.UserId,
-                tokenHash: newToken.TokenHash,
-                family: newToken.Family,      // Same family = same session
-                expiresAt: newToken.ExpiresAt,
-                deviceInfo: newToken.DeviceInfo);
-
-            context.RefreshTokens.Add(newEntity);
-            await context.SaveChangesAsync(ct);
-
-            await tx.CommitAsync(ct);
-            return true;
-        }
-        catch
-        {
-            await tx.RollbackAsync(ct);
-            throw;
-        }
+        });
     }
 
     public async Task RevokeAllFamilyAsync(

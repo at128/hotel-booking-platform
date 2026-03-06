@@ -1,4 +1,9 @@
-﻿using HotelBooking.Application.Features.Reviews.Commands.CreateHotelReview;
+﻿using HotelBooking.Api.Controllers;
+using HotelBooking.Application.Features.Hotels.Queries.GetHotelDetails;
+using HotelBooking.Application.Features.Hotels.Queries.GetHotelGallery;
+using HotelBooking.Application.Features.Hotels.Queries.GetRoomAvailability;
+using HotelBooking.Application.Features.Reviews.Commands.CreateHotelReview;
+using HotelBooking.Contracts.Hotels;
 using HotelBooking.Contracts.Reviews;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -7,8 +12,39 @@ using System.Security.Claims;
 
 [ApiController]
 [Route("api/v{version:apiVersion}/hotels")]
-public sealed class HotelsController(ISender sender) : ControllerBase
+public sealed class HotelsController(ISender sender) : ApiController
 {
+
+    [HttpGet("{id:guid}")]
+    [ProducesResponseType(typeof(HotelDetailsDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetHotelDetails(Guid id, CancellationToken ct)
+    {
+        var result = await sender.Send(new GetHotelDetailsQuery(id), ct);
+        return result.Match(Ok, Problem);
+    }
+
+    [HttpGet("{id:guid}/gallery")]
+    [ProducesResponseType(typeof(HotelGalleryResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetHotelGallery(Guid id, CancellationToken ct)
+    {
+        var result = await sender.Send(new GetHotelGalleryQuery(id), ct);
+        return result.Match(Ok, Problem);
+    }
+
+    [HttpGet("{id:guid}/room-availability")]
+    [ProducesResponseType(typeof(RoomAvailabilityResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetRoomAvailability(
+        Guid id,
+        [FromQuery] DateOnly checkIn,
+        [FromQuery] DateOnly checkOut,
+        CancellationToken ct)
+    {
+        var result = await sender.Send(new GetRoomAvailabilityQuery(id, checkIn, checkOut), ct);
+        return result.Match(Ok, Problem);
+    }
+
     [Authorize]
     [HttpPost("{hotelId:guid}/reviews")]
     [ProducesResponseType(typeof(ReviewDto), StatusCodes.Status201Created)]
@@ -37,7 +73,7 @@ public sealed class HotelsController(ISender sender) : ControllerBase
             return Problem();
 
         return CreatedAtAction(
-            actionName: nameof(CreateReview), 
+            actionName: nameof(CreateReview),
             routeValues: new { hotelId, version = "1" },
             value: result.Value);
     }

@@ -12,6 +12,7 @@ namespace HotelBooking.Api.Controllers;
 public sealed class EventsController(ISender sender) : ApiController
 {
     [HttpPost("hotel-viewed")]
+    [HttpPost("hotel-view")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> TrackHotelView(
         [FromBody] TrackHotelViewRequest request, CancellationToken ct)
