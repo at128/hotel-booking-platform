@@ -14,6 +14,10 @@ public sealed class SearchHotelsQueryValidator : AbstractValidator<SearchHotelsQ
             .MaximumLength(200)
             .When(x => !string.IsNullOrWhiteSpace(x.City));
 
+        RuleFor(x => x.RoomTypeId)
+            .NotEqual(Guid.Empty)
+            .When(x => x.RoomTypeId.HasValue);
+
         RuleFor(x => x.Limit)
             .InclusiveBetween(1, 50)
             .WithMessage("Limit must be between 1 and 50.");

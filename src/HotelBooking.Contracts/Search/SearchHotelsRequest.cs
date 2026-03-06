@@ -1,10 +1,9 @@
-﻿using System.Text.Json.Serialization;
-
-namespace HotelBooking.Contracts.Search;
+﻿namespace HotelBooking.Contracts.Search;
 
 public sealed record SearchHotelsRequest(
     string? Query,
     string? City,
+    Guid? RoomTypeId,
     DateOnly? CheckIn,
     DateOnly? CheckOut,
     int? Adults,

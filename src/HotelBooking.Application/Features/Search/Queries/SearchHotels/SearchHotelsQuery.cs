@@ -7,6 +7,7 @@ namespace HotelBooking.Application.Features.Search.Queries.SearchHotels;
 public sealed record SearchHotelsQuery(
     string? Query,
     string? City,
+    Guid? RoomTypeId,
     DateOnly? CheckIn,
     DateOnly? CheckOut,
     int? Adults,

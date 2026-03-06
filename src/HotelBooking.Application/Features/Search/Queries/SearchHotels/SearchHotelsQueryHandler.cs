@@ -39,6 +39,7 @@ public sealed class SearchHotelsQueryHandler(IAppDbContext context)
             .AsQueryable();
 
         ApplyTextSearchFilter();
+        ApplyRoomTypeFilter();
         ApplyStarRatingFilter();
         ApplyPriceRangeFilter();
         ApplyOccupancyAndAvailabilityFilter();
@@ -100,6 +101,15 @@ public sealed class SearchHotelsQueryHandler(IAppDbContext context)
                 h.City.Name.ToLower().Contains(term));
         }
 
+        void ApplyRoomTypeFilter()
+        {
+            if (!q.RoomTypeId.HasValue)
+                return;
+
+            query = query.Where(h =>
+                h.HotelRoomTypes.Any(rt => rt.RoomTypeId == q.RoomTypeId.Value));
+        }
+
         void ApplyStarRatingFilter()
         {
             if (!q.MinStarRating.HasValue)
@@ -132,6 +142,7 @@ public sealed class SearchHotelsQueryHandler(IAppDbContext context)
                 var now = DateTimeOffset.UtcNow;
 
                 query = query.Where(h => h.HotelRoomTypes.Any(rt =>
+                    (!q.RoomTypeId.HasValue || rt.RoomTypeId == q.RoomTypeId.Value) &&
                     (!hasOccupancyFilter || (rt.AdultCapacity >= adults && rt.ChildCapacity >= children)) &&
                     (
                         rt.Rooms.Count(r => r.DeletedAtUtc == null)
@@ -164,6 +175,7 @@ public sealed class SearchHotelsQueryHandler(IAppDbContext context)
             var childrenOnly = q.Children ?? DefaultChildren;
 
             query = query.Where(h => h.HotelRoomTypes.Any(rt =>
+                (!q.RoomTypeId.HasValue || rt.RoomTypeId == q.RoomTypeId.Value) &&
                 rt.AdultCapacity >= adultsOnly &&
                 rt.ChildCapacity >= childrenOnly));
         }

@@ -17,6 +17,7 @@ public sealed class SearchController(ISender sender) : ApiController
             new SearchHotelsQuery(
                 request.Query,
                 request.City,
+                request.RoomTypeId,
                 request.CheckIn,
                 request.CheckOut,
                 request.Adults,
