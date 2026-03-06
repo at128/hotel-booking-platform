@@ -217,11 +217,19 @@ public static class DependencyInjection
         IConfiguration configuration)
     {
         services.AddOptions<EmailSettings>()
-                .BindConfiguration(EmailSettings.SectionName)
-                .ValidateDataAnnotations()
-                .ValidateOnStart();
+        .BindConfiguration(EmailSettings.SectionName)
+        .ValidateDataAnnotations()
+        .Validate(s => !string.IsNullOrWhiteSpace(s.SmtpHost),
+            "Email:SmtpHost is required.")
+        .Validate(s => !string.IsNullOrWhiteSpace(s.SmtpUser),
+            "Email:SmtpUser is required.")
+        .Validate(s => !string.IsNullOrWhiteSpace(s.SmtpPassword),
+            "Email:SmtpPassword is required.")
+        .Validate(s => !string.IsNullOrWhiteSpace(s.FromAddress),
+            "Email:FromAddress is required.")
+        .ValidateOnStart();
 
-        services.AddScoped<IEmailService, SmtpEmailService>(); services.AddScoped<IEmailService, SmtpEmailService>();
+        services.AddScoped<IEmailService, SmtpEmailService>();
         return services;
     }
 }
