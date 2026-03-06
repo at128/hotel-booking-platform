@@ -12,11 +12,10 @@ public sealed class GetRoomByIdQueryHandler(IAppDbContext db)
 {
     public async Task<Result<RoomDto>> Handle(GetRoomByIdQuery q, CancellationToken ct)
     {
-        var item = await db.HotelRoomTypes
+        var item = await db.Rooms
             .AsNoTracking()
             .Include(x => x.Hotel)
-            .Include(x => x.RoomType)
-            .Include(x => x.Rooms)
+            .Include(x => x.HotelRoomType)
             .Where(x => x.Id == q.Id)
             .Select(x => new RoomDto(
                 x.Id,

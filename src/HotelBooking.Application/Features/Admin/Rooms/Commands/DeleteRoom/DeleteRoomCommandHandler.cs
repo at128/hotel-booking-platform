@@ -12,8 +12,8 @@ public sealed class DeleteRoomCommandHandler(IAppDbContext db)
 {
     public async Task<Result<Deleted>> Handle(DeleteRoomCommand cmd, CancellationToken ct)
     {
-        var entity = await db.HotelRoomTypes
-            .FirstOrDefaultAsync(x => x.Id == cmd.Id, ct);
+        var entity = await db.Rooms
+            .FirstOrDefaultAsync(x => x.Id == cmd.Id && x.DeletedAtUtc == null, ct);
 
         if (entity is null)
             return AdminErrors.Rooms.NotFound(cmd.Id);
@@ -21,13 +21,14 @@ public sealed class DeleteRoomCommandHandler(IAppDbContext db)
         var hasConfirmedBookings = await db.BookingRooms
             .AsNoTracking()
             .AnyAsync(br =>
-                br.HotelRoomTypeId == cmd.Id &&
+                br.RoomId == cmd.Id &&
                 br.Booking.Status == BookingStatus.Confirmed, ct);
 
         if (hasConfirmedBookings)
             return AdminErrors.Rooms.HasActiveBookings;
 
         entity.DeletedAtUtc = DateTimeOffset.UtcNow;
+
         await db.SaveChangesAsync(ct);
 
         return Result.Deleted;

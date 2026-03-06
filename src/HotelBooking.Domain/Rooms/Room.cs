@@ -12,13 +12,15 @@ namespace HotelBooking.Domain.Rooms
             Guid hotelRoomTypeId,
             Guid hotelId,
             string roomNumber,
-            short? floor = null)
+            short? floor = null,
+            RoomStatus? status=RoomStatus.Available)
             : base(id)
         {
             HotelRoomTypeId = hotelRoomTypeId;
             HotelId = hotelId;
             RoomNumber = roomNumber;
             Floor = floor;
+            Status= status ?? RoomStatus.Available;
         }
 
         public Guid HotelRoomTypeId { get; private set; }

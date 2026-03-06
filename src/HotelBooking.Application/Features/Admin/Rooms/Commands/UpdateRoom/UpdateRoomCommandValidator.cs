@@ -9,20 +9,12 @@ public sealed class UpdateRoomCommandValidator : AbstractValidator<UpdateRoomCom
         RuleFor(x => x.Id)
             .NotEmpty();
 
-        RuleFor(x => x.PricePerNight)
-            .GreaterThan(0);
+        RuleFor(x => x.RoomNumber)
+            .NotEmpty()
+            .MaximumLength(10);
 
-        RuleFor(x => x.AdultCapacity)
-            .GreaterThanOrEqualTo((short)0);
-
-        RuleFor(x => x.ChildCapacity)
-            .GreaterThanOrEqualTo((short)0);
-
-        RuleFor(x => x)
-            .Must(x => x.AdultCapacity + x.ChildCapacity > 0)
-            .WithMessage("At least one occupant must be supported.");
-
-        RuleFor(x => x.Description)
-            .MaximumLength(500);
+        RuleFor(x => x.Floor)
+            .GreaterThanOrEqualTo((short)0)
+            .When(x => x.Floor.HasValue);
     }
 }

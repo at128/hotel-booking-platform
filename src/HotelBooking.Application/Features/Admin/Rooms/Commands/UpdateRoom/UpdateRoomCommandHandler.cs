@@ -12,36 +12,43 @@ public sealed class UpdateRoomCommandHandler(IAppDbContext db)
 {
     public async Task<Result<RoomDto>> Handle(UpdateRoomCommand cmd, CancellationToken ct)
     {
-        var entity = await db.HotelRoomTypes
+        var entity = await db.Rooms
             .Include(x => x.Hotel)
-            .Include(x => x.RoomType)
-            .Include(x => x.Rooms)
-            .FirstOrDefaultAsync(x => x.Id == cmd.Id, ct);
+            .Include(x => x.HotelRoomType)
+                .ThenInclude(x => x.RoomType)
+            .FirstOrDefaultAsync(x => x.Id == cmd.Id && x.DeletedAtUtc == null, ct);
 
         if (entity is null)
             return AdminErrors.Rooms.NotFound(cmd.Id);
 
-        entity.Update(
-            pricePerNight: cmd.PricePerNight,
-            adultCapacity: cmd.AdultCapacity,
-            childCapacity: cmd.ChildCapacity,
-            description: string.IsNullOrWhiteSpace(cmd.Description) ? null : cmd.Description.Trim());
+        var roomNumber = cmd.RoomNumber.Trim();
+
+        var duplicateExists = await db.Rooms
+            .AsNoTracking()
+            .AnyAsync(r =>
+                r.Id != cmd.Id &&
+                r.HotelId == entity.HotelId &&
+                r.RoomNumber == roomNumber &&
+                r.DeletedAtUtc == null, ct);
+
+        if (duplicateExists)
+            return AdminErrors.Rooms.DuplicateRoomNumber;
+
+        entity.Update(roomNumber, cmd.Floor);
+        entity.UpdateStatus(cmd.Status);
 
         await db.SaveChangesAsync(ct);
 
         return new RoomDto(
-            entity.Id,
-            entity.HotelId,
-            entity.Hotel.Name,
-            entity.RoomTypeId,
-            entity.RoomType.Name,
-            entity.PricePerNight,
-            entity.AdultCapacity,
-            entity.ChildCapacity,
-            entity.MaxOccupancy,
-            entity.Description,
-            entity.Rooms.Count(r => r.DeletedAtUtc == null),
-            entity.CreatedAtUtc,
-            entity.LastModifiedUtc);
+            Id: entity.Id,
+            HotelId: entity.HotelId,
+            HotelName: entity.Hotel.Name,
+            HotelRoomTypeId: entity.HotelRoomTypeId,
+            RoomTypeName: entity.HotelRoomType.RoomType.Name,
+            RoomNumber: entity.RoomNumber,
+            Floor: entity.Floor,
+            Status: entity.Status,
+            CreatedAtUtc: entity.CreatedAtUtc,
+            LastModifiedUtc: entity.LastModifiedUtc);
     }
 }

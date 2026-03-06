@@ -39,18 +39,22 @@ public static class AdminErrors
     public static class Rooms
     {
         public static Error NotFound(Guid id) =>
-            Error.NotFound("Admin.Rooms.NotFound", $"Room type assignment {id} was not found.");
+            Error.NotFound("Admin.Rooms.NotFound", $"Room {id} was not found.");
 
-        public static Error ReferencedRoomTypeNotFound(Guid id) =>
-            Error.NotFound("Admin.Rooms.RoomTypeNotFound", $"Room type {id} was not found.");
+        public static Error ReferencedHotelRoomTypeNotFound(Guid id) =>
+            Error.NotFound("Admin.Rooms.HotelRoomTypeNotFound", $"Hotel room type {id} was not found.");
 
-        public static readonly Error AlreadyExists =
-            Error.Conflict("Admin.Rooms.AlreadyExists",
-                "This room type is already assigned to the selected hotel.");
+        public static readonly Error DuplicateRoomNumber =
+            Error.Conflict("Admin.Rooms.DuplicateRoomNumber",
+                "A room with the same number already exists in this hotel.");
+
+        public static readonly Error InvalidStatus =
+            Error.Validation("Admin.Rooms.InvalidStatus",
+                "Invalid room status.");
 
         public static readonly Error HasActiveBookings =
             Error.Conflict("Admin.Rooms.HasActiveBookings",
-                "Cannot delete a room type assignment that has confirmed bookings.");
+                "Cannot delete a room that has confirmed bookings.");
     }
     public static class RoomTypes
     {

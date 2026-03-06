@@ -2,7 +2,7 @@
 using HotelBooking.Application.Common.Interfaces;
 using HotelBooking.Contracts.Admin;
 using HotelBooking.Domain.Common.Results;
-using HotelBooking.Domain.Hotels;
+using HotelBooking.Domain.Rooms;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -13,52 +13,47 @@ public sealed class CreateRoomCommandHandler(IAppDbContext db)
 {
     public async Task<Result<RoomDto>> Handle(CreateRoomCommand cmd, CancellationToken ct)
     {
-        var hotel = await db.Hotels
+        var roomNumber = cmd.RoomNumber.Trim();
+
+        var hotelRoomType = await db.HotelRoomTypes
+            .Include(x => x.Hotel)
+            .Include(x => x.RoomType)
+            .FirstOrDefaultAsync(x => x.Id == cmd.HotelRoomTypeId && x.DeletedAtUtc == null, ct);
+
+        if (hotelRoomType is null)
+            return AdminErrors.Rooms.ReferencedHotelRoomTypeNotFound(cmd.HotelRoomTypeId);
+
+        var exists = await db.Rooms
             .AsNoTracking()
-            .FirstOrDefaultAsync(h => h.Id == cmd.HotelId, ct);
-
-        if (hotel is null)
-            return AdminErrors.Hotels.NotFound;
-
-        var roomType = await db.RoomTypes
-            .AsNoTracking()
-            .FirstOrDefaultAsync(rt => rt.Id == cmd.RoomTypeId, ct);
-
-        if (roomType is null)
-            return AdminErrors.Rooms.ReferencedRoomTypeNotFound(cmd.RoomTypeId);
-
-        var exists = await db.HotelRoomTypes
-            .AsNoTracking()
-            .AnyAsync(x => x.HotelId == cmd.HotelId && x.RoomTypeId == cmd.RoomTypeId, ct);
+            .AnyAsync(r =>
+                r.HotelId == hotelRoomType.HotelId &&
+                r.RoomNumber == roomNumber &&
+                r.DeletedAtUtc == null, ct);
 
         if (exists)
-            return AdminErrors.Rooms.AlreadyExists;
+            return AdminErrors.Rooms.DuplicateRoomNumber;
 
-        var entity = new HotelRoomType(
-            id: Guid.NewGuid(),
-            hotelId: cmd.HotelId,
-            roomTypeId: cmd.RoomTypeId,
-            pricePerNight: cmd.PricePerNight,
-            adultCapacity: cmd.AdultCapacity,
-            childCapacity: cmd.ChildCapacity,
-            description: string.IsNullOrWhiteSpace(cmd.Description) ? null : cmd.Description.Trim());
+        var entity = new Room(
+            id: Guid.CreateVersion7(),
+            hotelRoomTypeId: hotelRoomType.Id,
+            hotelId: hotelRoomType.HotelId,
+            roomNumber: roomNumber,
+            floor: cmd.Floor,
+            status: cmd.Status);
 
-        await db.HotelRoomTypes.AddAsync(entity, ct);
+        db.Rooms.Add(entity);
         await db.SaveChangesAsync(ct);
 
         return new RoomDto(
-            entity.Id,
-            entity.HotelId,
-            hotel.Name,
-            entity.RoomTypeId,
-            roomType.Name,
-            entity.PricePerNight,
-            entity.AdultCapacity,
-            entity.ChildCapacity,
-            entity.MaxOccupancy,
-            entity.Description,
-            0,
-            entity.CreatedAtUtc,
-            entity.LastModifiedUtc);
+            Id: entity.Id,
+            HotelId: entity.HotelId,
+            HotelName: hotelRoomType.Hotel.Name,
+            HotelRoomTypeId: entity.HotelRoomTypeId,
+            RoomTypeName: hotelRoomType.RoomType.Name,
+            RoomNumber: entity.RoomNumber,
+            Floor: entity.Floor,
+            Status: entity.Status,
+            CreatedAtUtc: entity.CreatedAtUtc,
+            LastModifiedUtc: entity.LastModifiedUtc);
     }
 }
