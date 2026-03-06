@@ -16,19 +16,17 @@ public sealed class GetRoomByIdQueryHandler(IAppDbContext db)
             .AsNoTracking()
             .Include(x => x.Hotel)
             .Include(x => x.HotelRoomType)
-            .Where(x => x.Id == q.Id)
+                .ThenInclude(x => x.RoomType)
+            .Where(x => x.Id == q.Id && x.DeletedAtUtc == null)
             .Select(x => new RoomDto(
                 x.Id,
                 x.HotelId,
                 x.Hotel.Name,
-                x.RoomTypeId,
-                x.RoomType.Name,
-                x.PricePerNight,
-                x.AdultCapacity,
-                x.ChildCapacity,
-                x.MaxOccupancy,
-                x.Description,
-                x.Rooms.Count(r => r.DeletedAtUtc == null),
+                x.HotelRoomTypeId,
+                x.HotelRoomType.RoomType.Name,
+                x.RoomNumber,
+                x.Floor,
+                x.Status,
                 x.CreatedAtUtc,
                 x.LastModifiedUtc))
             .FirstOrDefaultAsync(ct);
