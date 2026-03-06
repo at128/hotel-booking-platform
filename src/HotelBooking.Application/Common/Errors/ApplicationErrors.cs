@@ -70,6 +70,11 @@ public static class ApplicationErrors
         public static readonly Error CartEmpty =
             Error.Validation("Checkout.CartEmpty", "Your cart is empty.");
 
+        public static readonly Error MultipleHotelsNotAllowed =
+    Error.Validation(
+        "Checkout.MultipleHotelsNotAllowed",
+        "Checkout can only be created for rooms from a single hotel.");
+
         public static readonly Error HoldExpired =
             Error.Conflict("Checkout.HoldExpired",
                 "Your checkout session has expired. Please try again.");

@@ -26,8 +26,18 @@ public sealed class CreateCheckoutHoldCommandHandler(
             .Where(c => c.UserId == cmd.UserId)
             .ToListAsync(ct);
 
+
+
         if (cartItems.Count == 0)
             return ApplicationErrors.Checkout.CartEmpty;
+
+        var hotelIds = cartItems
+    .Select(x => x.HotelRoomType.HotelId)
+    .Distinct()
+    .ToList();
+
+        if (hotelIds.Count > 1)
+            return ApplicationErrors.Checkout.MultipleHotelsNotAllowed;
 
         await holdRepository.ReleaseHoldsAsync(cmd.UserId, ct);
 
