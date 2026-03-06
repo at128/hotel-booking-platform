@@ -7,6 +7,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Features\Home\Commands\**" />
+    <EmbeddedResource Remove="Features\Home\Commands\**" />
+    <None Remove="Features\Home\Commands\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\HotelBooking.Contracts\HotelBooking.Contracts.csproj" />
     <ProjectReference Include="..\HotelBooking.Domain\HotelBooking.Domain.csproj" />
   </ItemGroup>
@@ -20,10 +26,6 @@
     <PackageReference Include="Microsoft.Extensions.Caching.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" />
     <PackageReference Include="Microsoft.Extensions.Identity.Core" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Features\Home\Commands\" />
   </ItemGroup>
 
 </Project>
