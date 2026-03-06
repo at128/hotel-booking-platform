@@ -30,6 +30,12 @@ public sealed class SearchHotelsQueryHandler(IAppDbContext context)
 
     public async Task<Result<SearchHotelsResponse>> Handle(SearchHotelsQuery q, CancellationToken ct)
     {
+        var effectiveCheckIn = q.CheckIn ?? DateOnly.FromDateTime(DateTime.UtcNow.Date);
+        var effectiveCheckOut = q.CheckOut ?? effectiveCheckIn.AddDays(1);
+        var effectiveAdults = q.Adults ?? DefaultAdults;
+        var effectiveChildren = q.Children ?? DefaultChildren;
+        var effectiveRooms = Math.Max(DefaultRequiredRooms, q.NumberOfRooms ?? DefaultRequiredRooms);
+
         var query = context.Hotels
             .AsNoTracking()
             .AsSplitQuery()
@@ -134,16 +140,14 @@ public sealed class SearchHotelsQueryHandler(IAppDbContext context)
 
             if (hasAvailabilityFilter)
             {
-                var adults = q.Adults ?? DefaultAdults;
-                var children = q.Children ?? DefaultChildren;
-                var checkIn = q.CheckIn!.Value;
-                var checkOut = q.CheckOut!.Value;
-                var requiredRooms = Math.Max(DefaultRequiredRooms, q.NumberOfRooms ?? DefaultRequiredRooms);
+                var checkIn = effectiveCheckIn;
+                var checkOut = effectiveCheckOut;
+                var requiredRooms = effectiveRooms;
                 var now = DateTimeOffset.UtcNow;
 
                 query = query.Where(h => h.HotelRoomTypes.Any(rt =>
                     (!q.RoomTypeId.HasValue || rt.RoomTypeId == q.RoomTypeId.Value) &&
-                    (!hasOccupancyFilter || (rt.AdultCapacity >= adults && rt.ChildCapacity >= children)) &&
+                    (!hasOccupancyFilter || (rt.AdultCapacity >= effectiveAdults && rt.ChildCapacity >= effectiveChildren)) &&
                     (
                         rt.Rooms.Count(r => r.DeletedAtUtc == null)
 
@@ -171,13 +175,10 @@ public sealed class SearchHotelsQueryHandler(IAppDbContext context)
             if (!hasOccupancyFilter)
                 return;
 
-            var adultsOnly = q.Adults ?? DefaultAdults;
-            var childrenOnly = q.Children ?? DefaultChildren;
-
             query = query.Where(h => h.HotelRoomTypes.Any(rt =>
                 (!q.RoomTypeId.HasValue || rt.RoomTypeId == q.RoomTypeId.Value) &&
-                rt.AdultCapacity >= adultsOnly &&
-                rt.ChildCapacity >= childrenOnly));
+                rt.AdultCapacity >= effectiveAdults &&
+                rt.ChildCapacity >= effectiveChildren));
         }
 
         void ApplyAmenitiesFilter()
