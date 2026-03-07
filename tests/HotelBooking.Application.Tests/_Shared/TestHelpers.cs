@@ -14,6 +14,7 @@ using Moq;
 using System.Data;
 using System.Reflection;
 using Xunit;
+
 namespace HotelBooking.Application.Tests._Shared;
 
 /// <summary>
@@ -79,13 +80,14 @@ public static class TestHelpers
     public static HotelRoomType CreateHotelRoomType(
         Guid? id = null, Guid? hotelId = null, Guid? roomTypeId = null,
         decimal pricePerNight = 150m, short adultCapacity = 2,
-        short childCapacity = 0, string? description = null)
+        short childCapacity = 0, string? description = null,
+        short? maxOccupancy = null)
     {
         var hotel = CreateHotel(hotelId);
         var roomType = CreateRoomType(roomTypeId);
         var hrt = new HotelRoomType(
             id ?? Guid.NewGuid(), hotel.Id, roomType.Id,
-            pricePerNight, adultCapacity, childCapacity, description);
+            pricePerNight, adultCapacity, childCapacity, description, maxOccupancy);
 
         SetNav(hrt, nameof(HotelRoomType.Hotel), hotel);
         SetNav(hrt, nameof(HotelRoomType.RoomType), roomType);
@@ -108,8 +110,7 @@ public static class TestHelpers
         return hrt;
     }
 
-    // ─── Room ─────────────────────────────────────────────────────
-    // FIX: Room constructor has NO status parameter (it defaults to Available)
+    // ─── Room ────────────────────────────────────────────────────────────
 
     public static Room CreateRoom(
         Guid? id = null, Guid? hotelRoomTypeId = null,
@@ -155,6 +156,35 @@ public static class TestHelpers
             }
         }
         return booking;
+    }
+
+    // ─── BookingRoom ─────────────────────────────────────────────────────
+
+    public static BookingRoom CreateBookingRoom(
+        Guid? id = null,
+        Guid? bookingId = null,
+        Guid? hotelId = null,
+        Guid? roomId = null,
+        Guid? hotelRoomTypeId = null,
+        string roomTypeName = "Deluxe",
+        string roomNumber = "101",
+        decimal pricePerNight = 100m,
+        Booking? booking = null)
+    {
+        booking ??= CreateBooking(id: bookingId, hotelId: hotelId);
+
+        var bookingRoom = new BookingRoom(
+            id ?? Guid.NewGuid(),
+            booking.Id,
+            hotelId ?? booking.HotelId,
+            roomId ?? Guid.NewGuid(),
+            hotelRoomTypeId ?? Guid.NewGuid(),
+            roomTypeName,
+            roomNumber,
+            pricePerNight);
+
+        SetNav(bookingRoom, nameof(BookingRoom.Booking), booking);
+        return bookingRoom;
     }
 
     // ─── Payment ─────────────────────────────────────────────────────────
@@ -219,7 +249,7 @@ public static class TestHelpers
             id ?? Guid.NewGuid(), userId ?? Guid.NewGuid(),
             hotel.Id, hrt.Id,
             checkIn ?? new DateOnly(2026, 7, 1),
-            checkOut ?? new DateOnly(2026, 7, 3), // 2 nights
+            checkOut ?? new DateOnly(2026, 7, 3),
             quantity,
             DateTimeOffset.UtcNow.AddMinutes(expiryMinutes));
 
@@ -230,25 +260,21 @@ public static class TestHelpers
     // ─── CartItem ────────────────────────────────────────────────────────
 
     public static CartItem CreateCartItem(
-    Guid? id = null,
-    Guid? userId = null,
-    Guid? hotelId = null,
-    Guid? hotelRoomTypeId = null,
-    DateOnly? checkIn = null,
-    DateOnly? checkOut = null,
-    int quantity = 1,
-    int adults = 2,
-    int children = 0)
-    => new(
-        id ?? Guid.NewGuid(),
-        userId ?? Guid.NewGuid(),
-        hotelId ?? Guid.NewGuid(),
-        hotelRoomTypeId ?? Guid.NewGuid(),
-        checkIn ?? new DateOnly(2026, 7, 1),
-        checkOut ?? new DateOnly(2026, 7, 5),
-        quantity,
-        adults,
-        children);
+        Guid? id = null, Guid? userId = null,
+        Guid? hotelId = null, Guid? hotelRoomTypeId = null,
+        DateOnly? checkIn = null, DateOnly? checkOut = null,
+        int quantity = 1,
+        int adults = 2,
+        int children = 0)
+        => new(id ?? Guid.NewGuid(), userId ?? Guid.NewGuid(),
+               hotelId ?? Guid.NewGuid(),
+               hotelRoomTypeId ?? Guid.NewGuid(),
+               checkIn ?? new DateOnly(2026, 7, 1),
+               checkOut ?? new DateOnly(2026, 7, 5),
+               quantity,
+               adults,
+               children);
+
     // ─── Booking + Payment pair (for webhook/cancel tests) ───────────────
 
     public static (Booking booking, Payment payment) CreateBookingWithPayment(
