@@ -1,9 +1,11 @@
 ﻿using HotelBooking.Application.Common.Errors;
 using HotelBooking.Application.Common.Interfaces;
 using HotelBooking.Contracts.Cart;
+using HotelBooking.Domain.Bookings.Enums;
 using HotelBooking.Domain.Cart;
 using HotelBooking.Domain.Common.Results;
 using HotelBooking.Domain.Hotels;
+using HotelBooking.Domain.Rooms;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -15,8 +17,6 @@ public sealed class AddToCartCommandHandler(IAppDbContext db)
     public async Task<Result<CartItemDto>> Handle(
         AddToCartCommand cmd, CancellationToken ct)
     {
-
-        
         var roomType = await db.HotelRoomTypes
             .Include(rt => rt.Hotel)
             .Include(rt => rt.RoomType)
@@ -25,9 +25,11 @@ public sealed class AddToCartCommandHandler(IAppDbContext db)
         if (roomType is null)
             return ApplicationErrors.Cart.RoomTypeNotFound;
 
+        if (cmd.Adults < 1 || cmd.Children < 0)
+            return ApplicationErrors.Cart.InvalidGuests;
+
         if (!roomType.CanAccommodate(cmd.Adults, cmd.Children))
             return ApplicationErrors.Cart.RoomOccupancyExceeded;
-
 
         var nights = cmd.CheckOut.DayNumber - cmd.CheckIn.DayNumber;
         if (nights <= 0)
@@ -48,13 +50,51 @@ public sealed class AddToCartCommandHandler(IAppDbContext db)
                 return ApplicationErrors.Cart.DateMismatch;
         }
 
-        var existingItem = existingItems
-                .FirstOrDefault(c =>
-                    c.HotelRoomTypeId == cmd.HotelRoomTypeId &&
-                    c.Adults == cmd.Adults &&
-                    c.Children == cmd.Children);
+        var totalRooms = await db.Rooms
+            .CountAsync(r =>
+                r.HotelRoomTypeId == cmd.HotelRoomTypeId &&
+                r.DeletedAtUtc == null &&
+                r.Status == RoomStatus.Available, ct);
 
-        // FIX #1: lost update -> atomic increment in DB
+        var bookedRooms = await db.BookingRooms
+            .CountAsync(br =>
+                br.HotelRoomTypeId == cmd.HotelRoomTypeId &&
+                br.Booking.Status != BookingStatus.Cancelled &&
+                br.Booking.Status != BookingStatus.Failed &&
+                br.Booking.CheckIn < cmd.CheckOut &&
+                br.Booking.CheckOut > cmd.CheckIn, ct);
+
+        var heldRooms = await db.CheckoutHolds
+            .Where(ch =>
+                ch.HotelRoomTypeId == cmd.HotelRoomTypeId &&
+                !ch.IsReleased &&
+                ch.ExpiresAtUtc > DateTimeOffset.UtcNow &&
+                ch.CheckIn < cmd.CheckOut &&
+                ch.CheckOut > cmd.CheckIn)
+            .SumAsync(ch => (int?)ch.Quantity, ct) ?? 0;
+
+        var existingCartQty = existingItems
+            .Where(c =>
+                c.HotelRoomTypeId == cmd.HotelRoomTypeId &&
+                c.CheckIn == cmd.CheckIn &&
+                c.CheckOut == cmd.CheckOut &&
+                c.Adults == cmd.Adults &&
+                c.Children == cmd.Children)
+            .Sum(c => c.Quantity);
+
+        var available = totalRooms - bookedRooms - heldRooms - existingCartQty;
+
+        if (available < cmd.Quantity)
+            return ApplicationErrors.Cart.QuantityExceedsCapacity;
+
+        var existingItem = existingItems
+            .FirstOrDefault(c =>
+                c.HotelRoomTypeId == cmd.HotelRoomTypeId &&
+                c.CheckIn == cmd.CheckIn &&
+                c.CheckOut == cmd.CheckOut &&
+                c.Adults == cmd.Adults &&
+                c.Children == cmd.Children);
+
         if (existingItem is not null)
         {
             await db.CartItems
@@ -96,12 +136,14 @@ public sealed class AddToCartCommandHandler(IAppDbContext db)
                     c.UserId == cmd.UserId &&
                     c.HotelRoomTypeId == cmd.HotelRoomTypeId &&
                     c.CheckIn == cmd.CheckIn &&
-                    c.CheckOut == cmd.CheckOut)
+                    c.CheckOut == cmd.CheckOut &&
+                    c.Adults == cmd.Adults &&
+                    c.Children == cmd.Children)
                 .ExecuteUpdateAsync(setters => setters
                     .SetProperty(c => c.Quantity, c => c.Quantity + cmd.Quantity), ct);
 
             if (affected == 0)
-                throw; 
+                throw;
 
             var mergedItem = await db.CartItems
                 .AsNoTracking()
@@ -109,7 +151,9 @@ public sealed class AddToCartCommandHandler(IAppDbContext db)
                     c.UserId == cmd.UserId &&
                     c.HotelRoomTypeId == cmd.HotelRoomTypeId &&
                     c.CheckIn == cmd.CheckIn &&
-                    c.CheckOut == cmd.CheckOut, ct);
+                    c.CheckOut == cmd.CheckOut &&
+                    c.Adults == cmd.Adults &&
+                    c.Children == cmd.Children, ct);
 
             return MapToDto(mergedItem, roomType, nights);
         }
@@ -125,21 +169,21 @@ public sealed class AddToCartCommandHandler(IAppDbContext db)
     }
 
     private static CartItemDto MapToDto(
-    CartItem item,
-    HotelRoomType roomType,
-    int nights) => new(
-        Id: item.Id,
-        HotelId: item.HotelId,
-        HotelName: roomType.Hotel.Name,
-        HotelRoomTypeId: item.HotelRoomTypeId,
-        RoomTypeName: roomType.RoomType.Name,
-        MaxOccupancy: roomType.MaxOccupancy,
-        Adults: item.Adults,
-        Children: item.Children,
-        PricePerNight: roomType.PricePerNight,
-        CheckIn: item.CheckIn,
-        CheckOut: item.CheckOut,
-        Nights: nights,
-        Quantity: item.Quantity,
-        Subtotal: roomType.PricePerNight * nights * item.Quantity);
+        CartItem item,
+        HotelRoomType roomType,
+        int nights) => new(
+            Id: item.Id,
+            HotelId: item.HotelId,
+            HotelName: roomType.Hotel.Name,
+            HotelRoomTypeId: item.HotelRoomTypeId,
+            RoomTypeName: roomType.RoomType.Name,
+            MaxOccupancy: roomType.MaxOccupancy,
+            Adults: item.Adults,
+            Children: item.Children,
+            PricePerNight: roomType.PricePerNight,
+            CheckIn: item.CheckIn,
+            CheckOut: item.CheckOut,
+            Nights: nights,
+            Quantity: item.Quantity,
+            Subtotal: roomType.PricePerNight * nights * item.Quantity);
 }
