@@ -71,7 +71,7 @@ public sealed class HotelsController(ISender sender) : ApiController
             Comment: request.Comment), ct);
 
         if (result.IsError)
-            return Problem();
+            return Problem(result.Errors);
 
         return CreatedAtAction(
             actionName: nameof(CreateReview),
