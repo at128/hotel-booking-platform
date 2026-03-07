@@ -1,10 +1,11 @@
 ﻿namespace HotelBooking.Contracts.Home;
 
 public sealed record TrendingCityDto(
-    Guid CityId,
+    Guid Id,
     string Name,
     string Country,
     int HotelCount,
-    int VisitCount);
+    int VisitCount,
+    string? ThumbnailUrl);
 
 public sealed record TrendingCitiesResponse(List<TrendingCityDto> Cities);

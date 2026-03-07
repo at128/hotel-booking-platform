@@ -13,13 +13,12 @@ public sealed class CreateHotelReviewCommandHandler(IAppDbContext db)
 {
     public async Task<Result<ReviewDto>> Handle(CreateHotelReviewCommand cmd, CancellationToken ct)
     {
-        // 1) booking must exist and belong to the user
         var booking = await db.Bookings
             .AsNoTracking()
-            .FirstOrDefaultAsync(b =>
-                b.Id == cmd.BookingId &&
-                b.UserId == cmd.UserId 
-                , ct);
+            .FirstOrDefaultAsync(
+                b => b.Id == cmd.BookingId &&
+                     b.UserId == cmd.UserId,
+                ct);
 
         if (booking is null)
         {
@@ -76,6 +75,7 @@ public sealed class CreateHotelReviewCommandHandler(IAppDbContext db)
             HotelId: review.HotelId,
             BookingId: review.BookingId,
             UserId: review.UserId,
+            ReviewerName: null,
             Rating: review.Rating,
             Title: review.Title,
             Comment: review.Comment,
@@ -98,7 +98,9 @@ public sealed class CreateHotelReviewCommandHandler(IAppDbContext db)
         if (aggregate is null)
             return;
 
-        var hotel = await db.Hotels.FirstOrDefaultAsync(h => h.Id == hotelId && h.DeletedAtUtc == null, ct);
+        var hotel = await db.Hotels
+            .FirstOrDefaultAsync(h => h.Id == hotelId && h.DeletedAtUtc == null, ct);
+
         if (hotel is null)
             return;
 

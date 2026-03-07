@@ -21,7 +21,12 @@ public sealed class GetTrendingCitiesQueryHandler(IAppDbContext context)
                 c.Country,
                 c.Hotels.Count,
                 context.HotelVisits
-                    .Count(hv => hv.Hotel.CityId == c.Id && hv.VisitedAtUtc >= thirtyDaysAgo)))
+                    .Count(hv => hv.Hotel.CityId == c.Id && hv.VisitedAtUtc >= thirtyDaysAgo),
+                c.Hotels
+                    .Where(h => h.DeletedAtUtc == null && h.ThumbnailUrl != null)
+                    .OrderBy(h => h.Name)
+                    .Select(h => h.ThumbnailUrl)
+                    .FirstOrDefault()))
             .OrderByDescending(c => c.VisitCount)
             .ThenByDescending(c => c.HotelCount)
             .Take(5)
