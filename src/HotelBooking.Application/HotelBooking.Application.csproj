@@ -28,8 +28,4 @@
     <PackageReference Include="Microsoft.Extensions.Identity.Core" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Features\Admin\HotelRoomTypes\Commands\UpdateHotelRoomType\" />
-  </ItemGroup>
-
 </Project>

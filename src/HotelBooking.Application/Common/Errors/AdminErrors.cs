@@ -90,6 +90,21 @@ public static class AdminErrors
 
         public static Error NotFound(Guid id) =>
             Error.NotFound("Admin.HotelRoomTypes.NotFound", $"Hotel room type '{id}' was not found.");
+        
+        public static readonly Error HasPendingBookings =
+        Error.Conflict(
+            "Admin.HotelRoomTypes.HasPendingBookings",
+            "Hotel room type cannot be deleted while it has pending bookings.");
+
+        public static readonly Error HasActiveHolds =
+            Error.Conflict(
+                "Admin.HotelRoomTypes.HasActiveHolds",
+                "Hotel room type cannot be deleted while it has active checkout holds.");
+
+        public static readonly Error HasAssignedRooms =
+            Error.Conflict(
+                "Admin.HotelRoomTypes.HasAssignedRooms",
+                 "Hotel room type cannot be deleted while it still has assigned rooms.");
     }
 
 }

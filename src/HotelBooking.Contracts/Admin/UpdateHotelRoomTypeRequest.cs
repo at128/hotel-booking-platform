@@ -1,8 +1,6 @@
 ﻿namespace HotelBooking.Contracts.Admin.HotelRoomTypes;
 
-public sealed record CreateHotelRoomTypeRequest(
-    Guid HotelId,
-    Guid RoomTypeId,
+public sealed record UpdateHotelRoomTypeRequest(
     decimal PricePerNight,
     short AdultCapacity,
     short ChildCapacity,
