@@ -3,6 +3,7 @@ using HotelBooking.Application.Features.Hotels.Queries.GetHotelDetails;
 using HotelBooking.Application.Features.Hotels.Queries.GetHotelGallery;
 using HotelBooking.Application.Features.Hotels.Queries.GetRoomAvailability;
 using HotelBooking.Application.Features.Reviews.Commands.CreateHotelReview;
+using HotelBooking.Application.Features.Reviews.Queries.GetHotelReviews;
 using HotelBooking.Contracts.Hotels;
 using HotelBooking.Contracts.Reviews;
 using MediatR;
@@ -76,5 +77,18 @@ public sealed class HotelsController(ISender sender) : ApiController
             actionName: nameof(CreateReview),
             routeValues: new { hotelId, version = "1" },
             value: result.Value);
+    }
+
+    [HttpGet("{id:guid}/reviews")]
+    [ProducesResponseType(typeof(HotelReviewsResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetHotelReviews(
+    Guid id,
+    [FromQuery] int page = 1,
+    [FromQuery] int pageSize = 10,
+    CancellationToken ct = default)
+    {
+        var result = await sender.Send(new GetHotelReviewsQuery(id, page, pageSize), ct);
+        return result.Match(Ok, Problem);
     }
 }
