@@ -9,9 +9,11 @@ using HotelBooking.Application.Common.Errors;
 using HotelBooking.Application.Common.Interfaces;
 using HotelBooking.Application.Features.Cart.Commands.AddToCart;
 using HotelBooking.Application.Tests._Shared;
+using HotelBooking.Domain.Bookings;
 using HotelBooking.Domain.Cart;
 using HotelBooking.Domain.Common.Results;
 using HotelBooking.Domain.Hotels;
+using HotelBooking.Domain.Rooms;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using MockQueryable.Moq;
@@ -39,6 +41,24 @@ namespace HotelBooking.Application.Tests.Cart
             _db.Setup(x => x.SaveChangesAsync(default)).ReturnsAsync(1);
         }
 
+        private void SetupRooms(List<Room> items)
+        {
+            var mock = items.AsQueryable().BuildMockDbSet();
+            _db.Setup(x => x.Rooms).Returns(mock.Object);
+        }
+
+        private void SetupBookingRooms(List<BookingRoom> items)
+        {
+            var mock = items.AsQueryable().BuildMockDbSet();
+            _db.Setup(x => x.BookingRooms).Returns(mock.Object);
+        }
+
+        private void SetupCheckoutHolds(List<CheckoutHold> items)
+        {
+            var mock = items.AsQueryable().BuildMockDbSet();
+            _db.Setup(x => x.CheckoutHolds).Returns(mock.Object);
+        }
+
         [Fact]
         public async Task Handle_NewItem_ReturnsCartItemDto()
         {
@@ -46,6 +66,13 @@ namespace HotelBooking.Application.Tests.Cart
             var hrt = TestHelpers.CreateHotelRoomType();
             SetupHotelRoomTypes([hrt]);
             SetupCartItems([]);
+
+            SetupRooms([
+                TestHelpers.CreateRoom(hotelRoomTypeId: hrt.Id)
+            ]);
+
+            SetupBookingRooms([]);
+            SetupCheckoutHolds([]);
 
             var cmd = new AddToCartCommand(
                 UserId: Guid.NewGuid(),
@@ -63,6 +90,8 @@ namespace HotelBooking.Application.Tests.Cart
             result.IsError.Should().BeFalse();
             result.Value.HotelRoomTypeId.Should().Be(hrt.Id);
             result.Value.Quantity.Should().Be(1);
+            result.Value.Adults.Should().Be(2);
+            result.Value.Children.Should().Be(0);
         }
 
         [Fact]
@@ -70,6 +99,10 @@ namespace HotelBooking.Application.Tests.Cart
         {
             // Arrange
             SetupHotelRoomTypes([]);
+            SetupCartItems([]);
+            SetupRooms([]);
+            SetupBookingRooms([]);
+            SetupCheckoutHolds([]);
 
             var cmd = new AddToCartCommand(
                 UserId: Guid.NewGuid(),
@@ -95,6 +128,11 @@ namespace HotelBooking.Application.Tests.Cart
             var hrt = TestHelpers.CreateHotelRoomType();
             SetupHotelRoomTypes([hrt]);
             SetupCartItems([]);
+            SetupRooms([
+                TestHelpers.CreateRoom(hotelRoomTypeId: hrt.Id)
+            ]);
+            SetupBookingRooms([]);
+            SetupCheckoutHolds([]);
 
             var cmd = new AddToCartCommand(
                 UserId: Guid.NewGuid(),
@@ -124,7 +162,6 @@ namespace HotelBooking.Application.Tests.Cart
             var hrtB = TestHelpers.CreateHotelRoomType(hotelId: hotelIdB);
             SetupHotelRoomTypes([hrtB]);
 
-            // Existing cart item from hotel A
             var existing = TestHelpers.CreateCartItem(
                 userId: userId,
                 hotelId: hotelIdA,
@@ -134,6 +171,11 @@ namespace HotelBooking.Application.Tests.Cart
                 children: 0);
 
             SetupCartItems([existing]);
+            SetupRooms([
+                TestHelpers.CreateRoom(hotelRoomTypeId: hrtB.Id)
+            ]);
+            SetupBookingRooms([]);
+            SetupCheckoutHolds([]);
 
             var cmd = new AddToCartCommand(
                 UserId: userId,
@@ -161,7 +203,6 @@ namespace HotelBooking.Application.Tests.Cart
             var hrt = TestHelpers.CreateHotelRoomType(hotelId: hotelId);
             SetupHotelRoomTypes([hrt]);
 
-            // Existing cart item with different dates
             var existing = TestHelpers.CreateCartItem(
                 userId: userId,
                 hotelId: hotelId,
@@ -172,6 +213,11 @@ namespace HotelBooking.Application.Tests.Cart
                 children: 0);
 
             SetupCartItems([existing]);
+            SetupRooms([
+                TestHelpers.CreateRoom(hotelRoomTypeId: hrt.Id)
+            ]);
+            SetupBookingRooms([]);
+            SetupCheckoutHolds([]);
 
             var cmd = new AddToCartCommand(
                 UserId: userId,
@@ -197,6 +243,11 @@ namespace HotelBooking.Application.Tests.Cart
             var hrt = TestHelpers.CreateHotelRoomType();
             SetupHotelRoomTypes([hrt]);
             SetupCartItems([]);
+            SetupRooms([
+                TestHelpers.CreateRoom(hotelRoomTypeId: hrt.Id)
+            ]);
+            SetupBookingRooms([]);
+            SetupCheckoutHolds([]);
 
             var cmd = new AddToCartCommand(
                 UserId: Guid.NewGuid(),
@@ -213,6 +264,36 @@ namespace HotelBooking.Application.Tests.Cart
             // Assert
             result.IsError.Should().BeTrue();
             result.TopError.Code.Should().Be(ApplicationErrors.Cart.RoomOccupancyExceeded.Code);
+        }
+
+        [Fact]
+        public async Task Handle_QuantityExceedsCapacity_ReturnsError()
+        {
+            // Arrange
+            var hrt = TestHelpers.CreateHotelRoomType();
+            SetupHotelRoomTypes([hrt]);
+            SetupCartItems([]);
+
+            // no available rooms
+            SetupRooms([]);
+            SetupBookingRooms([]);
+            SetupCheckoutHolds([]);
+
+            var cmd = new AddToCartCommand(
+                UserId: Guid.NewGuid(),
+                HotelRoomTypeId: hrt.Id,
+                CheckIn: new DateOnly(2026, 8, 1),
+                CheckOut: new DateOnly(2026, 8, 5),
+                Quantity: 1,
+                Adults: 2,
+                Children: 0);
+
+            // Act
+            var result = await CreateHandler().Handle(cmd, default);
+
+            // Assert
+            result.IsError.Should().BeTrue();
+            result.TopError.Code.Should().Be(ApplicationErrors.Cart.QuantityExceedsCapacity.Code);
         }
     }
 }
