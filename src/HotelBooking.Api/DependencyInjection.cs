@@ -5,7 +5,6 @@ using HotelBooking.Api.Services.Images;
 using HotelBooking.Application.Common.Interfaces;
 using HotelBooking.Infrastructure.Settings;
 using Microsoft.AspNetCore.RateLimiting;
-using Microsoft.Extensions.Configuration;
 using Serilog;
 using System.Security.Claims;
 using System.Threading.RateLimiting;
@@ -18,7 +17,6 @@ public static class DependencyInjection
     private const string AuthRateLimitPolicy = "auth";
     private const string AdminUploadsRateLimitPolicy = "admin-uploads";
 
-
     public static IServiceCollection AddPresentation(
         this IServiceCollection services,
         IConfiguration configuration)
@@ -28,21 +26,13 @@ public static class DependencyInjection
         services.AddSwaggerDocumentation();
         services.AddRateLimitingPolicies();
         services.AddCorsPolicy(configuration);
-        services.AddControllers();
-        services.AddEndpointsApiExplorer();
 
-        services.AddHttpContextAccessor();
-        services.AddScoped<IUser, CurrentUser>();
-        services.AddScoped<ICookieService, CookieService>(); // ← أضف هذا
-
-        services.AddExceptionHandler<GlobalExceptionHandler>();
-        services.AddProblemDetails();
-        services.AddMemoryCache();
+        services.AddScoped<ICookieService, CookieService>();
 
         services.AddCookieSettings(configuration);
 
         services.Configure<CookieSettings>(
-        configuration.GetSection("CookieSettings"));
+            configuration.GetSection("CookieSettings"));
 
         services.AddExpirePendingPaymentsJobSettings(configuration);
         services.AddHotelImageUploadServices(configuration);
@@ -52,17 +42,10 @@ public static class DependencyInjection
 
     public static WebApplication UseCoreMiddlewares(this WebApplication app)
     {
-        if (!app.Environment.IsDevelopment())
-        {
-            app.UseHsts();
-        }
-        app.UseHttpsRedirection();
-        app.UseStaticFiles();
-        app.UseAuthentication();
-        app.UseAuthorization();
         app.UseDiagnosticsAndErrorHandling();
         app.UseSwaggerAndHsts();
         app.UseHttpSecurityPipeline();
+        app.UseStaticFiles();
 
         return app;
     }
@@ -147,7 +130,7 @@ public static class DependencyInjection
                     partitionKey: $"admin-upload:{key}",
                     factory: _ => new FixedWindowRateLimiterOptions
                     {
-                        PermitLimit = 100,                 
+                        PermitLimit = 100,
                         Window = TimeSpan.FromMinutes(1),
                         AutoReplenishment = true,
                         QueueLimit = 0,
@@ -267,7 +250,6 @@ public static class DependencyInjection
         app.UseHttpsRedirection();
         app.UseCors(FrontendCorsPolicy);
         app.UseRateLimiter();
-
         app.UseAuthentication();
         app.UseAuthorization();
 
@@ -279,18 +261,20 @@ public static class DependencyInjection
         IConfiguration configuration)
     {
         services
-        .AddOptions<ExpirePendingPaymentsJobSettings>()
-        .Bind(configuration.GetSection(ExpirePendingPaymentsJobSettings.SectionName))
-        .Validate(s => s.IntervalSeconds > 0, "IntervalSeconds must be > 0.")
-        .Validate(s => s.BatchSize > 0, "BatchSize must be > 0.")
-        .ValidateOnStart();
+            .AddOptions<ExpirePendingPaymentsJobSettings>()
+            .Bind(configuration.GetSection(ExpirePendingPaymentsJobSettings.SectionName))
+            .Validate(s => s.IntervalSeconds > 0, "IntervalSeconds must be > 0.")
+            .Validate(s => s.BatchSize > 0, "BatchSize must be > 0.")
+            .ValidateOnStart();
 
         services.AddHostedService<ExpirePendingPaymentsBackgroundService>();
 
         return services;
     }
 
-    private static IServiceCollection AddCookieSettings(this IServiceCollection services,IConfiguration configuration)
+    private static IServiceCollection AddCookieSettings(
+        this IServiceCollection services,
+        IConfiguration configuration)
     {
         services.AddOptions<CookieSettings>()
             .Bind(configuration.GetSection("CookieSettings"))
@@ -303,12 +287,13 @@ public static class DependencyInjection
             .Validate(s => !string.IsNullOrWhiteSpace(s.Path),
                 "CookieSettings:Path is required.")
             .ValidateOnStart();
+
         return services;
     }
 
     private static IServiceCollection AddHotelImageUploadServices(
-    this IServiceCollection services,
-    IConfiguration configuration)
+        this IServiceCollection services,
+        IConfiguration configuration)
     {
         services.AddOptions<HotelImageUploadOptions>()
             .Bind(configuration.GetSection(HotelImageUploadOptions.SectionName))
