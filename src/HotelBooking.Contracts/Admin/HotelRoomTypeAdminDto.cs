@@ -1,12 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿namespace HotelBooking.Contracts.Admin.HotelRoomTypes;
 
-namespace HotelBooking.Contracts.Admin
-{
-    internal class HotelRoomTypeAdminDto
-    {
-    }
-}
+public sealed record HotelRoomTypeAdminDto(
+    Guid Id,
+    Guid HotelId,
+    string HotelName,
+    Guid RoomTypeId,
+    string RoomTypeName,
+    decimal PricePerNight,
+    short AdultCapacity,
+    short ChildCapacity,
+    short MaxOccupancy,
+    string? Description);
