@@ -23,8 +23,7 @@ public sealed class SearchHotelsQueryValidator : AbstractValidator<SearchHotelsQ
             .WithMessage("Limit must be between 1 and 50.");
 
         RuleFor(x => x.MinStarRating)
-            .GreaterThan((short)1)
-            .LessThan((short)5)
+            .InclusiveBetween((short)1, (short)5)
             .When(x => x.MinStarRating.HasValue)
             .WithMessage("MinStarRating must be between 1 and 5.");
 
@@ -65,6 +64,16 @@ public sealed class SearchHotelsQueryValidator : AbstractValidator<SearchHotelsQ
             .InclusiveBetween(1, 10)
             .When(x => x.NumberOfRooms.HasValue)
             .WithMessage("NumberOfRooms must be between 1 and 10.");
+
+        RuleFor(x => x.Adults)
+            .InclusiveBetween(1, 20)
+            .When(x => x.Adults.HasValue)
+            .WithMessage("Adults must be between 1 and 20.");
+
+        RuleFor(x => x.Children)
+            .InclusiveBetween(0, 10)
+            .When(x => x.Children.HasValue)
+            .WithMessage("Children must be between 0 and 10.");
 
         RuleFor(x => x.SortBy)
             .Must(s => s is null or "price_asc" or "price_desc" or "rating_desc" or "stars_desc")
