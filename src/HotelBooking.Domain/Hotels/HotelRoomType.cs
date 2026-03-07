@@ -19,7 +19,8 @@ namespace HotelBooking.Domain.Hotels
             decimal pricePerNight,
             short adultCapacity = 2,
             short childCapacity = 0,
-            string? description = null)
+            string? description = null,
+            short? maxOccupancy = null)
             : base(id)
         {
             HotelId = hotelId;
@@ -28,6 +29,7 @@ namespace HotelBooking.Domain.Hotels
             AdultCapacity = adultCapacity;
             ChildCapacity = childCapacity;
             Description = description;
+            MaxOccupancy = maxOccupancy ?? (short)(adultCapacity + childCapacity);
         }
 
         public Guid HotelId { get; private set; }
@@ -35,7 +37,7 @@ namespace HotelBooking.Domain.Hotels
         public decimal PricePerNight { get; private set; }
         public short AdultCapacity { get; private set; }
         public short ChildCapacity { get; private set; }
-        public short MaxOccupancy => (short)(AdultCapacity + ChildCapacity);
+        public short MaxOccupancy { get; private set; }
         public string? Description { get; private set; }
         public DateTimeOffset? DeletedAtUtc { get; set; }
 
@@ -45,17 +47,43 @@ namespace HotelBooking.Domain.Hotels
         public ICollection<Room> Rooms { get; private set; } = [];
         public ICollection<HotelRoomTypeService> HotelRoomTypeServices { get; private set; } = [];
 
-        public void Update(
-            decimal pricePerNight,
-            short adultCapacity,
-            short childCapacity,
-            string? description)
+        public void UpdatePricing(decimal pricePerNight)
         {
             PricePerNight = pricePerNight;
+        }
+
+        public void UpdateOccupancy(short adultCapacity, short childCapacity, short? maxOccupancy = null)
+        {
+            var resolvedMaxOccupancy = maxOccupancy ?? (short)(adultCapacity + childCapacity);
+
+
+            if (adultCapacity < 1)
+                throw new ArgumentOutOfRangeException(nameof(adultCapacity));
+
+            if (childCapacity < 0)
+                throw new ArgumentOutOfRangeException(nameof(childCapacity));
+
+            if (resolvedMaxOccupancy < 1)
+                throw new ArgumentOutOfRangeException(nameof(maxOccupancy));
+
+            if (resolvedMaxOccupancy > adultCapacity + childCapacity)
+                throw new ArgumentOutOfRangeException(nameof(maxOccupancy));
+
             AdultCapacity = adultCapacity;
             ChildCapacity = childCapacity;
+            MaxOccupancy = resolvedMaxOccupancy;
+        }
+
+        public void UpdateDescription(string? description)
+        {
             Description = description;
         }
-    }
 
+        public bool CanAccommodate(int adults, int children)
+        {
+            return adults <= AdultCapacity
+                && children <= ChildCapacity
+                && (adults + children) <= MaxOccupancy;
+        }
+    }
 }
