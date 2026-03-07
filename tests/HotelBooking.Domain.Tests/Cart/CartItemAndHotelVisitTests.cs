@@ -5,6 +5,7 @@ using FluentAssertions;
 using HotelBooking.Domain.Cart;
 using HotelBooking.Domain.Hotels;
 using Xunit;
+
 namespace HotelBooking.Domain.Tests.Hotels;
 
 public class CartItemTests
@@ -19,7 +20,16 @@ public class CartItemTests
         var checkIn = new DateOnly(2026, 6, 1);
         var checkOut = new DateOnly(2026, 6, 5);
 
-        var item = new CartItem(id, userId, hotelId, hotelRoomTypeId, checkIn, checkOut, 2);
+        var item = new CartItem(
+            id,
+            userId,
+            hotelId,
+            hotelRoomTypeId,
+            checkIn,
+            checkOut,
+            2,
+            2,
+            0);
 
         item.Id.Should().Be(id);
         item.UserId.Should().Be(userId);
@@ -28,13 +38,23 @@ public class CartItemTests
         item.CheckIn.Should().Be(checkIn);
         item.CheckOut.Should().Be(checkOut);
         item.Quantity.Should().Be(2);
+        item.Adults.Should().Be(2);
+        item.Children.Should().Be(0);
     }
 
     [Fact]
     public void UpdateQuantity_ChangesQuantity()
     {
-        var item = new CartItem(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
-            Guid.NewGuid(), new DateOnly(2026, 6, 1), new DateOnly(2026, 6, 5), 1);
+        var item = new CartItem(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            new DateOnly(2026, 6, 1),
+            new DateOnly(2026, 6, 5),
+            1,
+            2,
+            0);
 
         item.UpdateQuantity(3);
 

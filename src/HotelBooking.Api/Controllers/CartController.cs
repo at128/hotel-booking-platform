@@ -43,7 +43,9 @@ public sealed class CartController(ISender sender) : ApiController
             request.HotelRoomTypeId,
             request.CheckIn,
             request.CheckOut,
-            request.Quantity), ct);
+            request.Quantity,
+            request.Adults,
+            request.Children), ct);
 
         return result.Match(
             item => CreatedAtAction(nameof(GetCart), item),

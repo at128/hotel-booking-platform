@@ -17,144 +17,205 @@ using Microsoft.Extensions.Logging;
 using MockQueryable.Moq;
 using Moq;
 using Xunit;
-namespace HotelBooking.Application.Tests.Cart { 
 
-public class AddToCartCommandHandlerTests
+namespace HotelBooking.Application.Tests.Cart
 {
-    private readonly Mock<IAppDbContext> _db = new();
-
-    private AddToCartCommandHandler CreateHandler() => new(_db.Object);
-
-    private void SetupHotelRoomTypes(List<HotelRoomType> items)
+    public class AddToCartCommandHandlerTests
     {
-        var mock = items.AsQueryable().BuildMockDbSet();
-        _db.Setup(x => x.HotelRoomTypes).Returns(mock.Object);
-    }
+        private readonly Mock<IAppDbContext> _db = new();
 
-    private void SetupCartItems(List<CartItem> items)
-    {
-        var mock = items.AsQueryable().BuildMockDbSet();
-        _db.Setup(x => x.CartItems).Returns(mock.Object);
-        _db.Setup(x => x.SaveChangesAsync(default)).ReturnsAsync(1);
-    }
+        private AddToCartCommandHandler CreateHandler() => new(_db.Object);
 
-    [Fact]
-    public async Task Handle_NewItem_ReturnsCartItemDto()
-    {
-        // Arrange
-        var hrt = TestHelpers.CreateHotelRoomType();
-        SetupHotelRoomTypes([hrt]);
-        SetupCartItems([]);
+        private void SetupHotelRoomTypes(List<HotelRoomType> items)
+        {
+            var mock = items.AsQueryable().BuildMockDbSet();
+            _db.Setup(x => x.HotelRoomTypes).Returns(mock.Object);
+        }
 
-        var cmd = new AddToCartCommand(
-            UserId: Guid.NewGuid(),
-            HotelRoomTypeId: hrt.Id,
-            CheckIn: new DateOnly(2026, 8, 1),
-            CheckOut: new DateOnly(2026, 8, 5),
-            Quantity: 1);
+        private void SetupCartItems(List<CartItem> items)
+        {
+            var mock = items.AsQueryable().BuildMockDbSet();
+            _db.Setup(x => x.CartItems).Returns(mock.Object);
+            _db.Setup(x => x.SaveChangesAsync(default)).ReturnsAsync(1);
+        }
 
-        // Act
-        var result = await CreateHandler().Handle(cmd, default);
+        [Fact]
+        public async Task Handle_NewItem_ReturnsCartItemDto()
+        {
+            // Arrange
+            var hrt = TestHelpers.CreateHotelRoomType();
+            SetupHotelRoomTypes([hrt]);
+            SetupCartItems([]);
 
-        // Assert
-        result.IsError.Should().BeFalse();
-        result.Value.HotelRoomTypeId.Should().Be(hrt.Id);
-        result.Value.Quantity.Should().Be(1);
-    }
+            var cmd = new AddToCartCommand(
+                UserId: Guid.NewGuid(),
+                HotelRoomTypeId: hrt.Id,
+                CheckIn: new DateOnly(2026, 8, 1),
+                CheckOut: new DateOnly(2026, 8, 5),
+                Quantity: 1,
+                Adults: 2,
+                Children: 0);
 
-    [Fact]
-    public async Task Handle_RoomTypeNotFound_ReturnsError()
-    {
-        // Arrange
-        SetupHotelRoomTypes([]);
+            // Act
+            var result = await CreateHandler().Handle(cmd, default);
 
-        var cmd = new AddToCartCommand(Guid.NewGuid(), Guid.NewGuid(),
-            new DateOnly(2026, 8, 1), new DateOnly(2026, 8, 5), 1);
+            // Assert
+            result.IsError.Should().BeFalse();
+            result.Value.HotelRoomTypeId.Should().Be(hrt.Id);
+            result.Value.Quantity.Should().Be(1);
+        }
 
-        // Act
-        var result = await CreateHandler().Handle(cmd, default);
+        [Fact]
+        public async Task Handle_RoomTypeNotFound_ReturnsError()
+        {
+            // Arrange
+            SetupHotelRoomTypes([]);
 
-        // Assert
-        result.IsError.Should().BeTrue();
-        result.TopError.Code.Should().Be(ApplicationErrors.Cart.RoomTypeNotFound.Code);
-    }
+            var cmd = new AddToCartCommand(
+                UserId: Guid.NewGuid(),
+                HotelRoomTypeId: Guid.NewGuid(),
+                CheckIn: new DateOnly(2026, 8, 1),
+                CheckOut: new DateOnly(2026, 8, 5),
+                Quantity: 1,
+                Adults: 2,
+                Children: 0);
 
-    [Fact]
-    public async Task Handle_InvalidDates_CheckOutBeforeCheckIn_ReturnsError()
-    {
-        // Arrange
-        var hrt = TestHelpers.CreateHotelRoomType();
-        SetupHotelRoomTypes([hrt]);
-        SetupCartItems([]);
+            // Act
+            var result = await CreateHandler().Handle(cmd, default);
 
-        var cmd = new AddToCartCommand(Guid.NewGuid(), hrt.Id,
-            new DateOnly(2026, 8, 5),  // CheckIn AFTER CheckOut
-            new DateOnly(2026, 8, 1), 1);
+            // Assert
+            result.IsError.Should().BeTrue();
+            result.TopError.Code.Should().Be(ApplicationErrors.Cart.RoomTypeNotFound.Code);
+        }
 
-        // Act
-        var result = await CreateHandler().Handle(cmd, default);
+        [Fact]
+        public async Task Handle_InvalidDates_CheckOutBeforeCheckIn_ReturnsError()
+        {
+            // Arrange
+            var hrt = TestHelpers.CreateHotelRoomType();
+            SetupHotelRoomTypes([hrt]);
+            SetupCartItems([]);
 
-        // Assert
-        result.IsError.Should().BeTrue();
-        result.TopError.Code.Should().Be(ApplicationErrors.Cart.InvalidDates.Code);
-    }
+            var cmd = new AddToCartCommand(
+                UserId: Guid.NewGuid(),
+                HotelRoomTypeId: hrt.Id,
+                CheckIn: new DateOnly(2026, 8, 5),
+                CheckOut: new DateOnly(2026, 8, 1),
+                Quantity: 1,
+                Adults: 2,
+                Children: 0);
 
-    [Fact]
-    public async Task Handle_HotelMismatch_DifferentHotelInCart_ReturnsError()
-    {
-        // Arrange
-        var userId = Guid.NewGuid();
-        var hotelIdA = Guid.NewGuid();
-        var hotelIdB = Guid.NewGuid();
+            // Act
+            var result = await CreateHandler().Handle(cmd, default);
 
-        var hrtB = TestHelpers.CreateHotelRoomType(hotelId: hotelIdB);
-        SetupHotelRoomTypes([hrtB]);
+            // Assert
+            result.IsError.Should().BeTrue();
+            result.TopError.Code.Should().Be(ApplicationErrors.Cart.InvalidDates.Code);
+        }
 
-        // Existing cart item from hotel A
-        var existing = TestHelpers.CreateCartItem(userId: userId, hotelId: hotelIdA,
-            checkIn: new DateOnly(2026, 8, 1), checkOut: new DateOnly(2026, 8, 5));
-        SetupCartItems([existing]);
+        [Fact]
+        public async Task Handle_HotelMismatch_DifferentHotelInCart_ReturnsError()
+        {
+            // Arrange
+            var userId = Guid.NewGuid();
+            var hotelIdA = Guid.NewGuid();
+            var hotelIdB = Guid.NewGuid();
 
-        var cmd = new AddToCartCommand(userId, hrtB.Id,
-            new DateOnly(2026, 8, 1), new DateOnly(2026, 8, 5), 1);
+            var hrtB = TestHelpers.CreateHotelRoomType(hotelId: hotelIdB);
+            SetupHotelRoomTypes([hrtB]);
 
-        // Act
-        var result = await CreateHandler().Handle(cmd, default);
+            // Existing cart item from hotel A
+            var existing = TestHelpers.CreateCartItem(
+                userId: userId,
+                hotelId: hotelIdA,
+                checkIn: new DateOnly(2026, 8, 1),
+                checkOut: new DateOnly(2026, 8, 5),
+                adults: 2,
+                children: 0);
 
-        // Assert
-        result.IsError.Should().BeTrue();
-        result.TopError.Code.Should().Be(ApplicationErrors.Cart.HotelMismatch.Code);
-    }
+            SetupCartItems([existing]);
 
-    [Fact]
-    public async Task Handle_DateMismatch_DifferentDatesInCart_ReturnsError()
-    {
-        // Arrange
-        var userId = Guid.NewGuid();
-        var hotelId = Guid.NewGuid();
-        var hrt = TestHelpers.CreateHotelRoomType(hotelId: hotelId);
-        SetupHotelRoomTypes([hrt]);
+            var cmd = new AddToCartCommand(
+                UserId: userId,
+                HotelRoomTypeId: hrtB.Id,
+                CheckIn: new DateOnly(2026, 8, 1),
+                CheckOut: new DateOnly(2026, 8, 5),
+                Quantity: 1,
+                Adults: 2,
+                Children: 0);
 
-        // Existing cart item with different dates
-        var existing = TestHelpers.CreateCartItem(userId: userId, hotelId: hotelId,
-            hotelRoomTypeId: Guid.NewGuid(),
-            checkIn: new DateOnly(2026, 9, 1),  // different dates
-            checkOut: new DateOnly(2026, 9, 5));
-        SetupCartItems([existing]);
+            // Act
+            var result = await CreateHandler().Handle(cmd, default);
 
-        var cmd = new AddToCartCommand(userId, hrt.Id,
-            new DateOnly(2026, 8, 1), new DateOnly(2026, 8, 5), 1);  // different dates
+            // Assert
+            result.IsError.Should().BeTrue();
+            result.TopError.Code.Should().Be(ApplicationErrors.Cart.HotelMismatch.Code);
+        }
 
-        // Act
-        var result = await CreateHandler().Handle(cmd, default);
+        [Fact]
+        public async Task Handle_DateMismatch_DifferentDatesInCart_ReturnsError()
+        {
+            // Arrange
+            var userId = Guid.NewGuid();
+            var hotelId = Guid.NewGuid();
+            var hrt = TestHelpers.CreateHotelRoomType(hotelId: hotelId);
+            SetupHotelRoomTypes([hrt]);
 
-        // Assert
-        result.IsError.Should().BeTrue();
-        result.TopError.Code.Should().Be(ApplicationErrors.Cart.DateMismatch.Code);
+            // Existing cart item with different dates
+            var existing = TestHelpers.CreateCartItem(
+                userId: userId,
+                hotelId: hotelId,
+                hotelRoomTypeId: Guid.NewGuid(),
+                checkIn: new DateOnly(2026, 9, 1),
+                checkOut: new DateOnly(2026, 9, 5),
+                adults: 2,
+                children: 0);
+
+            SetupCartItems([existing]);
+
+            var cmd = new AddToCartCommand(
+                UserId: userId,
+                HotelRoomTypeId: hrt.Id,
+                CheckIn: new DateOnly(2026, 8, 1),
+                CheckOut: new DateOnly(2026, 8, 5),
+                Quantity: 1,
+                Adults: 2,
+                Children: 0);
+
+            // Act
+            var result = await CreateHandler().Handle(cmd, default);
+
+            // Assert
+            result.IsError.Should().BeTrue();
+            result.TopError.Code.Should().Be(ApplicationErrors.Cart.DateMismatch.Code);
+        }
+
+        [Fact]
+        public async Task Handle_RoomOccupancyExceeded_ReturnsError()
+        {
+            // Arrange
+            var hrt = TestHelpers.CreateHotelRoomType();
+            SetupHotelRoomTypes([hrt]);
+            SetupCartItems([]);
+
+            var cmd = new AddToCartCommand(
+                UserId: Guid.NewGuid(),
+                HotelRoomTypeId: hrt.Id,
+                CheckIn: new DateOnly(2026, 8, 1),
+                CheckOut: new DateOnly(2026, 8, 5),
+                Quantity: 1,
+                Adults: 10,
+                Children: 10);
+
+            // Act
+            var result = await CreateHandler().Handle(cmd, default);
+
+            // Assert
+            result.IsError.Should().BeTrue();
+            result.TopError.Code.Should().Be(ApplicationErrors.Cart.RoomOccupancyExceeded.Code);
+        }
     }
 }
-}
-
 
 namespace HotelBooking.Application.Tests.Behaviors
 {

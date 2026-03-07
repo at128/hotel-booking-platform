@@ -230,17 +230,25 @@ public static class TestHelpers
     // ─── CartItem ────────────────────────────────────────────────────────
 
     public static CartItem CreateCartItem(
-        Guid? id = null, Guid? userId = null,
-        Guid? hotelId = null, Guid? hotelRoomTypeId = null,
-        DateOnly? checkIn = null, DateOnly? checkOut = null,
-        int quantity = 1)
-        => new(id ?? Guid.NewGuid(), userId ?? Guid.NewGuid(),
-               hotelId ?? Guid.NewGuid(),
-               hotelRoomTypeId ?? Guid.NewGuid(),
-               checkIn ?? new DateOnly(2026, 7, 1),
-               checkOut ?? new DateOnly(2026, 7, 5),
-               quantity);
-
+    Guid? id = null,
+    Guid? userId = null,
+    Guid? hotelId = null,
+    Guid? hotelRoomTypeId = null,
+    DateOnly? checkIn = null,
+    DateOnly? checkOut = null,
+    int quantity = 1,
+    int adults = 2,
+    int children = 0)
+    => new(
+        id ?? Guid.NewGuid(),
+        userId ?? Guid.NewGuid(),
+        hotelId ?? Guid.NewGuid(),
+        hotelRoomTypeId ?? Guid.NewGuid(),
+        checkIn ?? new DateOnly(2026, 7, 1),
+        checkOut ?? new DateOnly(2026, 7, 5),
+        quantity,
+        adults,
+        children);
     // ─── Booking + Payment pair (for webhook/cancel tests) ───────────────
 
     public static (Booking booking, Payment payment) CreateBookingWithPayment(

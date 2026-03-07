@@ -59,6 +59,13 @@ public static class ApplicationErrors
         public static Error InvalidQuantity(int max) =>
             Error.Validation("Cart.InvalidQuantity",
                 $"Quantity must be between 1 and {max}.");
+
+        public static readonly Error InvalidGuests =
+    Error.Validation("Cart.InvalidGuests", "Adults and children counts are invalid.");
+
+        public static readonly Error RoomOccupancyExceeded =
+            Error.Validation("Cart.RoomOccupancyExceeded", "Selected room cannot accommodate the requested guests.");
+
     }
 
     public static class Checkout

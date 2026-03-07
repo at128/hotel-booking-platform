@@ -15,6 +15,8 @@ public sealed class AddToCartCommandHandler(IAppDbContext db)
     public async Task<Result<CartItemDto>> Handle(
         AddToCartCommand cmd, CancellationToken ct)
     {
+
+        
         var roomType = await db.HotelRoomTypes
             .Include(rt => rt.Hotel)
             .Include(rt => rt.RoomType)
@@ -22,6 +24,10 @@ public sealed class AddToCartCommandHandler(IAppDbContext db)
 
         if (roomType is null)
             return ApplicationErrors.Cart.RoomTypeNotFound;
+
+        if (!roomType.CanAccommodate(cmd.Adults, cmd.Children))
+            return ApplicationErrors.Cart.RoomOccupancyExceeded;
+
 
         var nights = cmd.CheckOut.DayNumber - cmd.CheckIn.DayNumber;
         if (nights <= 0)
@@ -43,7 +49,10 @@ public sealed class AddToCartCommandHandler(IAppDbContext db)
         }
 
         var existingItem = existingItems
-            .FirstOrDefault(c => c.HotelRoomTypeId == cmd.HotelRoomTypeId);
+                .FirstOrDefault(c =>
+                    c.HotelRoomTypeId == cmd.HotelRoomTypeId &&
+                    c.Adults == cmd.Adults &&
+                    c.Children == cmd.Children);
 
         // FIX #1: lost update -> atomic increment in DB
         if (existingItem is not null)
@@ -67,7 +76,9 @@ public sealed class AddToCartCommandHandler(IAppDbContext db)
             hotelRoomTypeId: cmd.HotelRoomTypeId,
             checkIn: cmd.CheckIn,
             checkOut: cmd.CheckOut,
-            quantity: cmd.Quantity);
+            quantity: cmd.Quantity,
+            adults: cmd.Adults,
+            children: cmd.Children);
 
         db.CartItems.Add(cartItem);
 
@@ -114,19 +125,21 @@ public sealed class AddToCartCommandHandler(IAppDbContext db)
     }
 
     private static CartItemDto MapToDto(
-        CartItem item,
-        HotelRoomType roomType,
-        int nights) => new(
-            Id: item.Id,
-            HotelId: item.HotelId,
-            HotelName: roomType.Hotel.Name,
-            HotelRoomTypeId: item.HotelRoomTypeId,
-            RoomTypeName: roomType.RoomType.Name,
-            MaxOccupancy: roomType.MaxOccupancy,
-            PricePerNight: roomType.PricePerNight,
-            CheckIn: item.CheckIn,
-            CheckOut: item.CheckOut,
-            Nights: nights,
-            Quantity: item.Quantity,
-            Subtotal: roomType.PricePerNight * nights * item.Quantity);
+    CartItem item,
+    HotelRoomType roomType,
+    int nights) => new(
+        Id: item.Id,
+        HotelId: item.HotelId,
+        HotelName: roomType.Hotel.Name,
+        HotelRoomTypeId: item.HotelRoomTypeId,
+        RoomTypeName: roomType.RoomType.Name,
+        MaxOccupancy: roomType.MaxOccupancy,
+        Adults: item.Adults,
+        Children: item.Children,
+        PricePerNight: roomType.PricePerNight,
+        CheckIn: item.CheckIn,
+        CheckOut: item.CheckOut,
+        Nights: nights,
+        Quantity: item.Quantity,
+        Subtotal: roomType.PricePerNight * nights * item.Quantity);
 }

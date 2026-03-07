@@ -20,5 +20,13 @@ public sealed class AddToCartCommandValidator : AbstractValidator<AddToCartComma
         RuleFor(x => x.Quantity)
             .InclusiveBetween(1, 10)
             .WithMessage("Quantity must be between 1 and 10.");
+
+        RuleFor(x => x.Adults)
+            .InclusiveBetween(1, 20)
+            .WithMessage("Adults must be between 1 and 20.");
+
+        RuleFor(x => x.Children)
+            .InclusiveBetween(0, 10)
+            .WithMessage("Children must be between 0 and 10.");
     }
 }

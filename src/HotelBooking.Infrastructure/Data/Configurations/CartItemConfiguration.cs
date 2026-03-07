@@ -19,6 +19,11 @@ public sealed class CartItemConfiguration : IEntityTypeConfiguration<CartItem>
         builder.Property(c => c.CheckOut).IsRequired();
         builder.Property(c => c.Quantity).IsRequired();
         builder.Property(c => c.CreatedAtUtc).IsRequired();
+        builder.Property(ci => ci.Adults)
+            .IsRequired();  
+
+        builder.Property(ci => ci.Children)
+            .IsRequired();
 
         // Composite unique index: one item per user per room type per date range
         builder.HasIndex(c => new { c.UserId, c.HotelRoomTypeId, c.CheckIn, c.CheckOut })

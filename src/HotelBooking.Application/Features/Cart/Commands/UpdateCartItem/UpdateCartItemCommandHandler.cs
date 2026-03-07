@@ -35,6 +35,8 @@ public sealed class UpdateCartItemCommandHandler(IAppDbContext db)
             HotelRoomTypeId: item.HotelRoomTypeId,
             RoomTypeName: item.HotelRoomType.RoomType.Name,
             MaxOccupancy: item.HotelRoomType.MaxOccupancy,
+            Adults: item.Adults,
+            Children: item.Children,
             PricePerNight: item.HotelRoomType.PricePerNight,
             CheckIn: item.CheckIn,
             CheckOut: item.CheckOut,

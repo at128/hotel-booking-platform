@@ -6,6 +6,7 @@ public sealed record RoomAvailabilityDto(
     decimal PricePerNight,
     short AdultCapacity,
     short ChildCapacity,
+    short MaxOccupancy,
     int TotalRooms,
     int BookedRooms,
     int HeldRooms,

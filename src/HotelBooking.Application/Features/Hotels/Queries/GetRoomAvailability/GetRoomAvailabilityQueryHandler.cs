@@ -25,20 +25,21 @@ public sealed class GetRoomAvailabilityQueryHandler(IAppDbContext context)
         var now = DateTimeOffset.UtcNow;
 
         var roomTypes = await context.HotelRoomTypes
-                .AsNoTracking()
-                .Where(hrt => hrt.HotelId == q.HotelId && hrt.DeletedAtUtc == null)
-                .Select(hrt => new
-                {
-                    hrt.Id,
-                    RoomTypeName = hrt.RoomType.Name,
-                    hrt.PricePerNight,
-                    hrt.AdultCapacity,
-                    hrt.ChildCapacity,
-                    TotalRooms = hrt.Rooms.Count(r =>
-                        r.Status == RoomStatus.Available &&
-                        r.DeletedAtUtc == null)
-                })
-                .ToListAsync(ct);
+            .AsNoTracking()
+            .Where(hrt => hrt.HotelId == q.HotelId && hrt.DeletedAtUtc == null)
+            .Select(hrt => new
+            {
+                hrt.Id,
+                RoomTypeName = hrt.RoomType.Name,
+                hrt.PricePerNight,
+                hrt.AdultCapacity,
+                hrt.ChildCapacity,
+                hrt.MaxOccupancy,
+                TotalRooms = hrt.Rooms.Count(r =>
+                    r.Status == RoomStatus.Available &&
+                    r.DeletedAtUtc == null)
+            })
+            .ToListAsync(ct);
 
         var bookedCounts = await context.Bookings
             .AsNoTracking()
@@ -79,6 +80,7 @@ public sealed class GetRoomAvailabilityQueryHandler(IAppDbContext context)
                 hrt.PricePerNight,
                 hrt.AdultCapacity,
                 hrt.ChildCapacity,
+                hrt.MaxOccupancy,
                 totalRooms,
                 booked,
                 held,

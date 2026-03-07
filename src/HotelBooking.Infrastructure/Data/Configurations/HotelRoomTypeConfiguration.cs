@@ -22,6 +22,9 @@ namespace HotelBooking.Infrastructure.Data.Configurations
 
             builder.Property(hrt => hrt.ChildCapacity)
                 .IsRequired();
+            builder.Property(hrt => hrt.PricePerNight)
+                    .HasPrecision(10, 2)
+                    .IsRequired();
 
             builder.Property(hrt => hrt.MaxOccupancy)
                 .IsRequired();
