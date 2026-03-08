@@ -6,6 +6,7 @@ using HotelBooking.Application.Common.Interfaces;
 using HotelBooking.Infrastructure.Settings;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Options;
 using Serilog;
 using System.Globalization;
 using System.Net;
@@ -672,16 +673,10 @@ public static class DependencyInjection
         this IServiceCollection services,
         IConfiguration configuration)
     {
+        services.AddSingleton<IValidateOptions<CookieSettings>, CookieSettingsValidator>();
+
         services.AddOptions<CookieSettings>()
             .Bind(configuration.GetSection("CookieSettings"))
-            .Validate(s => !string.IsNullOrWhiteSpace(s.RefreshTokenCookieName),
-                "CookieSettings:RefreshTokenCookieName is required.")
-            .Validate(s => s.RefreshTokenExpiryDays is > 0 and <= 90,
-                "CookieSettings:RefreshTokenExpiryDays must be between 1 and 90.")
-            .Validate(s => !string.IsNullOrWhiteSpace(s.SameSite),
-                "CookieSettings:SameSite is required.")
-            .Validate(s => !string.IsNullOrWhiteSpace(s.Path),
-                "CookieSettings:Path is required.")
             .ValidateOnStart();
 
         return services;
