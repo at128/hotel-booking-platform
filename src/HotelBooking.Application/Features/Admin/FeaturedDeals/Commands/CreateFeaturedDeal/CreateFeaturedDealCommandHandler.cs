@@ -10,9 +10,13 @@ using FeaturedDealDto = HotelBooking.Contracts.Admin.FeaturedDealDto;
 
 namespace HotelBooking.Application.Features.Admin.FeaturedDeals.Commands.CreateFeaturedDeal;
 
-public sealed class CreateFeaturedDealCommandHandler(IAppDbContext db)
+public sealed class CreateFeaturedDealCommandHandler(
+    IAppDbContext db,
+    ICacheInvalidator? cacheInvalidator = null)
     : IRequestHandler<CreateFeaturedDealCommand, Result<FeaturedDealDto>>
 {
+    private const string FeaturedDealsCacheKey = "home:featured-deals";
+
     public async Task<Result<FeaturedDealDto>> Handle(
         CreateFeaturedDealCommand cmd, CancellationToken ct)
     {
@@ -51,6 +55,8 @@ public sealed class CreateFeaturedDealCommandHandler(IAppDbContext db)
 
         db.FeaturedDeals.Add(deal);
         await db.SaveChangesAsync(ct);
+        if (cacheInvalidator is not null)
+            await cacheInvalidator.RemoveAsync(FeaturedDealsCacheKey, ct);
 
         return new FeaturedDealDto(
             deal.Id, deal.HotelId, hotel.Name,

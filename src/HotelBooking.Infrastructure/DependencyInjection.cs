@@ -1,6 +1,7 @@
 ﻿using HotelBooking.Application.Common.Interfaces;
 using HotelBooking.Application.Settings;
 using HotelBooking.Infrastructure.BackgroundJobs;
+using HotelBooking.Infrastructure.Caching;
 using HotelBooking.Infrastructure.Data;
 using HotelBooking.Infrastructure.Data.Interceptors;
 using HotelBooking.Infrastructure.Data.Repositories;
@@ -45,6 +46,7 @@ public static class DependencyInjection
         services.AddScoped<IIdentityService, IdentityService>();
 
         services.AddHybridCache();
+        services.AddScoped<ICacheInvalidator, CacheInvalidator>();
 
         services.AddRefreshToken(configuration);
 

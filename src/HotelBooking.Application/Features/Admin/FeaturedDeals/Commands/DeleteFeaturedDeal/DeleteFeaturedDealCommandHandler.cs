@@ -5,9 +5,13 @@ using Microsoft.EntityFrameworkCore;
 
 namespace HotelBooking.Application.Features.Admin.FeaturedDeals.Commands.DeleteFeaturedDeal;
 
-public sealed class DeleteFeaturedDealCommandHandler(IAppDbContext db)
+public sealed class DeleteFeaturedDealCommandHandler(
+    IAppDbContext db,
+    ICacheInvalidator? cacheInvalidator = null)
     : IRequestHandler<DeleteFeaturedDealCommand, Result<Deleted>>
 {
+    private const string FeaturedDealsCacheKey = "home:featured-deals";
+
     public async Task<Result<Deleted>> Handle(
         DeleteFeaturedDealCommand cmd, CancellationToken ct)
     {
@@ -19,6 +23,8 @@ public sealed class DeleteFeaturedDealCommandHandler(IAppDbContext db)
 
         db.FeaturedDeals.Remove(deal);
         await db.SaveChangesAsync(ct);
+        if (cacheInvalidator is not null)
+            await cacheInvalidator.RemoveAsync(FeaturedDealsCacheKey, ct);
 
         return Result.Deleted;
     }
