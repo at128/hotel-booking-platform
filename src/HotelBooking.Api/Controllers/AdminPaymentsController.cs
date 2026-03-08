@@ -1,4 +1,5 @@
-﻿using HotelBooking.Application.Features.Admin.Payments.Queries.GetAdminPayments;
+using HotelBooking.Application.Features.Admin.Payments.Queries.GetAdminPayments;
+using HotelBooking.Domain.Common.Constants;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -6,7 +7,7 @@ using Microsoft.AspNetCore.RateLimiting;
 
 namespace HotelBooking.Api.Controllers;
 
-[Authorize(Roles = "Admin")]
+[Authorize(Roles = HotelBookingConstants.Roles.Admin)]
 [EnableRateLimiting("admin")]
 public sealed class AdminPaymentsController(ISender sender) : ApiController
 {

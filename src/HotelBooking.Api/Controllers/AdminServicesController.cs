@@ -1,9 +1,10 @@
-﻿using HotelBooking.Application.Features.Admin.Services.Commands.CreateService;
+using HotelBooking.Application.Features.Admin.Services.Commands.CreateService;
 using HotelBooking.Application.Features.Admin.Services.Commands.DeleteService;
 using HotelBooking.Application.Features.Admin.Services.Commands.UpdateService;
 using HotelBooking.Application.Features.Admin.Services.Queries.GetServiceById;
 using HotelBooking.Application.Features.Admin.Services.Queries.GetServices;
 using HotelBooking.Contracts.Admin;
+using HotelBooking.Domain.Common.Constants;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -11,7 +12,7 @@ using Microsoft.AspNetCore.RateLimiting;
 
 namespace HotelBooking.Api.Controllers;
 
-[Authorize(Roles = "Admin")]
+[Authorize(Roles = HotelBookingConstants.Roles.Admin)]
 [EnableRateLimiting("admin")]
 public sealed class AdminServicesController(ISender sender) : ApiController
 {

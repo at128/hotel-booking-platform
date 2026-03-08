@@ -8,6 +8,7 @@ using HotelBooking.Application.Features.Reviews.Commands.UpdateReview;
 using HotelBooking.Application.Features.Reviews.Queries.GetHotelReviews;
 using HotelBooking.Contracts.Hotels;
 using HotelBooking.Contracts.Reviews;
+using HotelBooking.Domain.Common.Constants;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -126,7 +127,7 @@ public sealed class HotelsController(ISender sender) : ApiController
         if (!Guid.TryParse(userIdClaim, out var userId))
             return Unauthorized();
 
-        var isAdmin = User.IsInRole("Admin");
+        var isAdmin = User.IsInRole(HotelBookingConstants.Roles.Admin);
         var result = await sender.Send(
             new DeleteReviewCommand(reviewId, userId, isAdmin), ct);
 

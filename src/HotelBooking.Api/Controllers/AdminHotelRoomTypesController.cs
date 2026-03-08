@@ -5,6 +5,7 @@ using HotelBooking.Application.Features.Admin.HotelRoomTypes.Commands.UpdateHote
 using HotelBooking.Application.Features.Admin.HotelRoomTypes.Queries.GetHotelRoomTypeById;
 using HotelBooking.Application.Features.Admin.HotelRoomTypes.Queries.GetHotelRoomTypes;
 using HotelBooking.Contracts.Admin.HotelRoomTypes;
+using HotelBooking.Domain.Common.Constants;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -15,7 +16,7 @@ namespace HotelBooking.Api.Controllers;
 [ApiController]
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/admin/hotel-room-types")]
-[Authorize(Roles = "Admin")]
+[Authorize(Roles = HotelBookingConstants.Roles.Admin)]
 [EnableRateLimiting("admin")]
 public sealed class AdminHotelRoomTypesController(ISender sender) : ApiController
 {

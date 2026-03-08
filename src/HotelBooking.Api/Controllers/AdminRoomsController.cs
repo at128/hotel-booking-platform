@@ -1,9 +1,10 @@
-﻿using HotelBooking.Application.Features.Admin.Rooms.Commands.CreateRoom;
+using HotelBooking.Application.Features.Admin.Rooms.Commands.CreateRoom;
 using HotelBooking.Application.Features.Admin.Rooms.Commands.DeleteRoom;
 using HotelBooking.Application.Features.Admin.Rooms.Commands.UpdateRoom;
 using HotelBooking.Application.Features.Admin.Rooms.Quries.GetRoomById;
 using HotelBooking.Application.Features.Admin.Rooms.Quries.GetRooms;
 using HotelBooking.Contracts.Admin;
+using HotelBooking.Domain.Common.Constants;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -11,7 +12,7 @@ using Microsoft.AspNetCore.RateLimiting;
 
 namespace HotelBooking.Api.Controllers;
 
-[Authorize(Roles = "Admin")]
+[Authorize(Roles = HotelBookingConstants.Roles.Admin)]
 [EnableRateLimiting("admin")]
 public sealed class AdminRoomsController(ISender sender) : ApiController
 {

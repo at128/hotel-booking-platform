@@ -3,6 +3,7 @@ using HotelBooking.Application.Features.Admin.FeaturedDeals.Commands.DeleteFeatu
 using HotelBooking.Application.Features.Admin.FeaturedDeals.Commands.UpdateFeaturedDeal;
 using HotelBooking.Application.Features.Admin.FeaturedDeals.Queries.GetAdminFeaturedDeals;
 using HotelBooking.Contracts.Admin;
+using HotelBooking.Domain.Common.Constants;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -10,7 +11,7 @@ using Microsoft.AspNetCore.RateLimiting;
 
 namespace HotelBooking.Api.Controllers;
 
-[Authorize(Roles = "Admin")]
+[Authorize(Roles = HotelBookingConstants.Roles.Admin)]
 [EnableRateLimiting("admin")]
 public sealed class AdminFeaturedDealsController(ISender sender) : ApiController
 {
