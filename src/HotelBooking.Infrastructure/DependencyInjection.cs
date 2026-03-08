@@ -16,6 +16,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Stripe;
 using System.Text;
@@ -219,14 +220,10 @@ public static class DependencyInjection
                 "Stripe:WebhookSecret is required.")
             .ValidateOnStart();
 
+        services.AddSingleton<IValidateOptions<PaymentUrlSettings>, PaymentUrlSettingsValidator>();
+
         services.AddOptions<PaymentUrlSettings>()
             .Bind(configuration.GetSection(PaymentUrlSettings.SectionName))
-            .Validate(
-                s => !string.IsNullOrWhiteSpace(s.SuccessUrlTemplate),
-                "PaymentUrls:SuccessUrlTemplate is required.")
-            .Validate(
-                s => !string.IsNullOrWhiteSpace(s.CancelUrlTemplate),
-                "PaymentUrls:CancelUrlTemplate is required.")
             .ValidateOnStart();
 
         var stripeKey = configuration[$"{StripeSettings.SectionName}:SecretKey"];
