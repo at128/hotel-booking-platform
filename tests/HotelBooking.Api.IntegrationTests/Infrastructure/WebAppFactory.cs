@@ -85,6 +85,8 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
                 ["RateLimiting:Auth:WindowSeconds"] = "60",
                 ["RateLimiting:AdminUploads:PermitLimit"] = "100000",
                 ["RateLimiting:AdminUploads:WindowSeconds"] = "60",
+                ["RateLimiting:Webhooks:PermitLimit"] = "100000",
+                ["RateLimiting:Webhooks:WindowSeconds"] = "60",
             });
         });
 
@@ -139,6 +141,17 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
                 options.AddPolicy("admin-uploads", _ =>
                     RateLimitPartition.GetFixedWindowLimiter(
                         partitionKey: "tests-admin-uploads",
+                        factory: _ => new FixedWindowRateLimiterOptions
+                        {
+                            PermitLimit = 1_000_000,
+                            Window = TimeSpan.FromMinutes(1),
+                            AutoReplenishment = true,
+                            QueueLimit = 0
+                        }));
+
+                options.AddPolicy("webhooks", _ =>
+                    RateLimitPartition.GetFixedWindowLimiter(
+                        partitionKey: "tests-webhooks",
                         factory: _ => new FixedWindowRateLimiterOptions
                         {
                             PermitLimit = 1_000_000,

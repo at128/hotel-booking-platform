@@ -2,6 +2,7 @@
 using HotelBooking.Application.Common.Interfaces;
 using HotelBooking.Application.Features.Checkout.Commands.HandlePaymentWebhook;
 using MediatR;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HotelBooking.Api.Controllers;
@@ -16,10 +17,16 @@ public sealed class WebhooksController(
     : ControllerBase
 {
     private const string StripeSignatureHeader = "Stripe-Signature";
+    private const string WebhooksRateLimitPolicy = "webhooks";
+    private const long StripeWebhookRequestLimitBytes = 256 * 1024;
 
     [HttpPost("stripe")]
+    [EnableRateLimiting(WebhooksRateLimitPolicy)]
+    [RequestSizeLimit(StripeWebhookRequestLimitBytes)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status413PayloadTooLarge)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> StripeWebhook(CancellationToken ct)
     {
         string rawPayload;

@@ -20,6 +20,7 @@ public static class DependencyInjection
     private const string FrontendCorsPolicy = "Frontend";
     private const string AuthRateLimitPolicy = "auth";
     private const string AdminUploadsRateLimitPolicy = "admin-uploads";
+    private const string WebhooksRateLimitPolicy = "webhooks";
 
     public static IServiceCollection AddPresentation(
         this IServiceCollection services,
@@ -123,6 +124,14 @@ public static class DependencyInjection
             configuration,
             "RateLimiting:AdminUploads:WindowSeconds",
             60);
+        var webhooksPermitLimit = GetPositiveIntOrDefault(
+            configuration,
+            "RateLimiting:Webhooks:PermitLimit",
+            60);
+        var webhooksWindowSeconds = GetPositiveIntOrDefault(
+            configuration,
+            "RateLimiting:Webhooks:WindowSeconds",
+            60);
 
         services.AddRateLimiter(options =>
         {
@@ -170,6 +179,22 @@ public static class DependencyInjection
                     {
                         PermitLimit = adminUploadsPermitLimit,
                         Window = TimeSpan.FromSeconds(adminUploadsWindowSeconds),
+                        AutoReplenishment = true,
+                        QueueLimit = 0,
+                        QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+                    });
+            });
+
+            options.AddPolicy(WebhooksRateLimitPolicy, httpContext =>
+            {
+                var ip = GetClientIp(httpContext);
+
+                return RateLimitPartition.GetFixedWindowLimiter(
+                    partitionKey: $"webhook:{ip}",
+                    factory: _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = webhooksPermitLimit,
+                        Window = TimeSpan.FromSeconds(webhooksWindowSeconds),
                         AutoReplenishment = true,
                         QueueLimit = 0,
                         QueueProcessingOrder = QueueProcessingOrder.OldestFirst
