@@ -1,7 +1,9 @@
 using HotelBooking.Api;
 using HotelBooking.Application;
+using HotelBooking.Domain.Common.Constants;
 using HotelBooking.Infrastructure;
 using HotelBooking.Infrastructure.Data;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
@@ -88,19 +90,36 @@ static async Task ApplyMigrationsAndSeedAsync(WebApplication app)
 }
 static void MapHealthEndpoints(WebApplication app)
 {
-    app.MapHealthChecks("/api/v1/health/live", new HealthCheckOptions
+    var allowAnonymousHealthEndpoints =
+        app.Configuration.GetValue<bool>("Monitoring:AllowAnonymousHealthEndpoints");
+
+    var liveEndpoint = app.MapHealthChecks("/api/v1/health/live", new HealthCheckOptions
     {
         Predicate = _ => false,
         AllowCachingResponses = false
-    }).AllowAnonymous();
+    });
 
-    app.MapHealthChecks("/api/v1/health/ready", new HealthCheckOptions
+    var readyEndpoint = app.MapHealthChecks("/api/v1/health/ready", new HealthCheckOptions
     {
 
         Predicate = _ => true,
         AllowCachingResponses = false
-    })
-    .AllowAnonymous();
+    });
+
+    if (allowAnonymousHealthEndpoints)
+    {
+        liveEndpoint.AllowAnonymous();
+        readyEndpoint.AllowAnonymous();
+        return;
+    }
+
+    var adminOnly = new AuthorizeAttribute
+    {
+        Roles = HotelBookingConstants.Roles.Admin
+    };
+
+    liveEndpoint.RequireAuthorization(adminOnly);
+    readyEndpoint.RequireAuthorization(adminOnly);
 }
 
 public partial class Program;

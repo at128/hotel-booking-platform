@@ -86,8 +86,10 @@ The project enforces strict dependency rules — inner layers have zero knowledg
 ### Health
 | Endpoint | Description |
 |----------|-------------|
-| `/api/v1/health/live` | Liveness probe (no deps check) |
-| `/api/v1/health/ready` | Readiness probe (checks DB) 🔒 |
+| `/api/v1/health/live` | Liveness endpoint (admin-only by default) |
+| `/api/v1/health/ready` | Readiness endpoint (DB check, admin-only by default) |
+
+Set `Monitoring:AllowAnonymousHealthEndpoints=true` only if you explicitly want public health probes.
 
 ---
 
@@ -137,9 +139,9 @@ EOF
 # Start all services
 docker compose up -d
 
-# API will be available at http://localhost:5000
-# Swagger UI at http://localhost:5000/swagger
-# Seq dashboard at http://localhost:5341
+# API will be available at http://localhost:5009
+# Swagger UI at http://localhost:5009/swagger
+# Seq dashboard at http://localhost:5341 (login with SEQ admin password)
 ```
 
 ### Option 2: Local Development
@@ -189,3 +191,4 @@ dotnet test --filter "Category!=Integration&Category!=E2E"
 ## License
 
 This project is for educational and portfolio purposes.
+
