@@ -5,6 +5,7 @@ using HotelBooking.Domain.Common.Results;
 using HotelBooking.Domain.Hotels.Enums;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using ImageDto = HotelBooking.Contracts.Admin.ImageDto;
 
 namespace HotelBooking.Application.Features.Admin.Hotels.Commands.UpdateHotelImage;
 

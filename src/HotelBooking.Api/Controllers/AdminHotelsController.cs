@@ -5,7 +5,9 @@ using HotelBooking.Application.Features.Admin.Hotels.Command.DeleteHotel;
 using HotelBooking.Application.Features.Admin.Hotels.Command.UpdateHotel;
 using HotelBooking.Application.Features.Admin.Hotels.Commands.AddHotelImage;
 using HotelBooking.Application.Features.Admin.Hotels.Commands.DeleteHotelImage;
+using HotelBooking.Application.Features.Admin.Hotels.Commands.LinkService;
 using HotelBooking.Application.Features.Admin.Hotels.Commands.SetHotelThumbnail;
+using HotelBooking.Application.Features.Admin.Hotels.Commands.UnlinkService;
 using HotelBooking.Application.Features.Admin.Hotels.Commands.UpdateHotelImage;
 using HotelBooking.Application.Features.Admin.Hotels.Query.GetHotelById;
 using HotelBooking.Application.Features.Admin.Hotels.Query.GetHotels;
@@ -198,6 +200,25 @@ public sealed class AdminHotelsController(ISender sender, IHotelImageUploadProce
         Guid hotelId, Guid imageId, CancellationToken ct)
     {
         var result = await sender.Send(new SetHotelThumbnailCommand(hotelId, imageId), ct);
+        return result.Match(_ => NoContent(), Problem);
+    }
+
+
+    [HttpPost("{hotelId:guid}/services")]
+    public async Task<IActionResult> LinkService(
+    Guid hotelId, [FromBody] LinkServiceRequest request, CancellationToken ct)
+    {
+        var result = await sender.Send(new LinkServiceToHotelCommand(
+            hotelId, request.ServiceId, request.Price, request.IsFree), ct);
+        return result.Match(_ => NoContent(), Problem);
+    }
+
+    [HttpDelete("{hotelId:guid}/services/{serviceId:guid}")]
+    public async Task<IActionResult> UnlinkService(
+        Guid hotelId, Guid serviceId, CancellationToken ct)
+    {
+        var result = await sender.Send(
+            new UnlinkServiceFromHotelCommand(hotelId, serviceId), ct);
         return result.Match(_ => NoContent(), Problem);
     }
 }
