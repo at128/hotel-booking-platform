@@ -4,10 +4,14 @@ using HotelBooking.Api.Services;
 using HotelBooking.Api.Services.Images;
 using HotelBooking.Application.Common.Interfaces;
 using HotelBooking.Infrastructure.Settings;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Serilog;
+using System.Net;
+using System.Net.Sockets;
 using System.Security.Claims;
 using System.Threading.RateLimiting;
+using ForwardedIpNetwork = Microsoft.AspNetCore.HttpOverrides.IPNetwork;
 
 namespace HotelBooking.Api;
 
@@ -24,7 +28,8 @@ public static class DependencyInjection
         services.AddPresentationCore();
         services.AddApiVersioningServices();
         services.AddSwaggerDocumentation();
-        services.AddRateLimitingPolicies();
+        services.AddRateLimitingPolicies(configuration);
+        services.AddForwardedHeadersSupport(configuration);
         services.AddCorsPolicy(configuration);
 
         services.AddScoped<ICookieService, CookieService>();
@@ -84,8 +89,41 @@ public static class DependencyInjection
         return services;
     }
 
-    private static IServiceCollection AddRateLimitingPolicies(this IServiceCollection services)
+    private static IServiceCollection AddRateLimitingPolicies(
+        this IServiceCollection services,
+        IConfiguration configuration)
     {
+        var globalTokenLimit = GetPositiveIntOrDefault(
+            configuration,
+            "RateLimiting:Global:TokenLimit",
+            300);
+        var globalTokensPerPeriod = GetPositiveIntOrDefault(
+            configuration,
+            "RateLimiting:Global:TokensPerPeriod",
+            300);
+        var globalReplenishmentSeconds = GetPositiveIntOrDefault(
+            configuration,
+            "RateLimiting:Global:ReplenishmentPeriodSeconds",
+            60);
+
+        var authPermitLimit = GetPositiveIntOrDefault(
+            configuration,
+            "RateLimiting:Auth:PermitLimit",
+            10);
+        var authWindowSeconds = GetPositiveIntOrDefault(
+            configuration,
+            "RateLimiting:Auth:WindowSeconds",
+            60);
+
+        var adminUploadsPermitLimit = GetPositiveIntOrDefault(
+            configuration,
+            "RateLimiting:AdminUploads:PermitLimit",
+            100);
+        var adminUploadsWindowSeconds = GetPositiveIntOrDefault(
+            configuration,
+            "RateLimiting:AdminUploads:WindowSeconds",
+            60);
+
         services.AddRateLimiter(options =>
         {
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -96,9 +134,9 @@ public static class DependencyInjection
 
                 return RateLimitPartition.GetTokenBucketLimiter(ip, _ => new TokenBucketRateLimiterOptions
                 {
-                    TokenLimit = 300,
-                    TokensPerPeriod = 300,
-                    ReplenishmentPeriod = TimeSpan.FromMinutes(1),
+                    TokenLimit = globalTokenLimit,
+                    TokensPerPeriod = globalTokensPerPeriod,
+                    ReplenishmentPeriod = TimeSpan.FromSeconds(globalReplenishmentSeconds),
                     AutoReplenishment = true,
                     QueueLimit = 0,
                     QueueProcessingOrder = QueueProcessingOrder.OldestFirst
@@ -111,8 +149,8 @@ public static class DependencyInjection
 
                 return RateLimitPartition.GetFixedWindowLimiter(ip, _ => new FixedWindowRateLimiterOptions
                 {
-                    PermitLimit = 10,
-                    Window = TimeSpan.FromMinutes(1),
+                    PermitLimit = authPermitLimit,
+                    Window = TimeSpan.FromSeconds(authWindowSeconds),
                     AutoReplenishment = true,
                     QueueLimit = 0,
                     QueueProcessingOrder = QueueProcessingOrder.OldestFirst
@@ -130,8 +168,8 @@ public static class DependencyInjection
                     partitionKey: $"admin-upload:{key}",
                     factory: _ => new FixedWindowRateLimiterOptions
                     {
-                        PermitLimit = 100,
-                        Window = TimeSpan.FromMinutes(1),
+                        PermitLimit = adminUploadsPermitLimit,
+                        Window = TimeSpan.FromSeconds(adminUploadsWindowSeconds),
                         AutoReplenishment = true,
                         QueueLimit = 0,
                         QueueProcessingOrder = QueueProcessingOrder.OldestFirst
@@ -140,6 +178,15 @@ public static class DependencyInjection
         });
 
         return services;
+    }
+
+    private static int GetPositiveIntOrDefault(
+        IConfiguration configuration,
+        string key,
+        int defaultValue)
+    {
+        var configuredValue = configuration.GetValue<int?>(key);
+        return configuredValue is > 0 ? configuredValue.Value : defaultValue;
     }
 
     private static IServiceCollection AddCorsPolicy(
@@ -165,6 +212,84 @@ public static class DependencyInjection
         });
 
         return services;
+    }
+
+    private static IServiceCollection AddForwardedHeadersSupport(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        services.Configure<ForwardedHeadersOptions>(options =>
+        {
+            options.ForwardedHeaders =
+                ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+
+            var forwardLimit = configuration.GetValue<int?>("ForwardedHeaders:ForwardLimit");
+            if (forwardLimit is > 0)
+            {
+                options.ForwardLimit = forwardLimit.Value;
+            }
+
+            var knownProxies = configuration
+                .GetSection("ForwardedHeaders:KnownProxies")
+                .Get<string[]>() ?? [];
+
+            foreach (var proxy in knownProxies)
+            {
+                if (IPAddress.TryParse(proxy, out var parsed))
+                {
+                    options.KnownProxies.Add(parsed);
+                }
+            }
+
+            var knownNetworks = configuration
+                .GetSection("ForwardedHeaders:KnownNetworks")
+                .Get<string[]>() ?? [];
+
+            foreach (var network in knownNetworks)
+            {
+                if (TryParseIpNetwork(network, out var parsed))
+                {
+                    options.KnownNetworks.Add(parsed);
+                }
+            }
+        });
+
+        return services;
+    }
+
+    private static bool TryParseIpNetwork(string? value, out ForwardedIpNetwork network)
+    {
+        network = default!;
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        var parts = value.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (parts.Length != 2)
+        {
+            return false;
+        }
+
+        if (!IPAddress.TryParse(parts[0], out var address))
+        {
+            return false;
+        }
+
+        if (!int.TryParse(parts[1], out var prefixLength))
+        {
+            return false;
+        }
+
+        var maxPrefixLength = address.AddressFamily == AddressFamily.InterNetwork ? 32 : 128;
+        if (prefixLength < 0 || prefixLength > maxPrefixLength)
+        {
+            return false;
+        }
+
+        network = new ForwardedIpNetwork(address, prefixLength);
+        return true;
     }
 
     private static string GetClientIp(HttpContext httpContext) =>
@@ -247,10 +372,11 @@ public static class DependencyInjection
 
     private static WebApplication UseHttpSecurityPipeline(this WebApplication app)
     {
+        app.UseForwardedHeaders();
         app.UseHttpsRedirection();
         app.UseCors(FrontendCorsPolicy);
         app.UseAuthentication();
-        //app.UseRateLimiter();
+        app.UseRateLimiter();
         app.UseAuthorization();
 
         return app;
