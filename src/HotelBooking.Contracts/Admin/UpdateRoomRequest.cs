@@ -1,7 +1,8 @@
-﻿namespace HotelBooking.Contracts.Admin;
+﻿using HotelBooking.Domain.Rooms;
+
+namespace HotelBooking.Contracts.Admin;
 
 public sealed record UpdateRoomRequest(
-    decimal PricePerNight,
-    short AdultCapacity,
-    short ChildCapacity,
-    string? Description);
+    string RoomNumber,
+    short? Floor,
+    RoomStatus Status);

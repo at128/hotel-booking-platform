@@ -66,7 +66,7 @@ internal sealed class SmtpEmailService(
     private static string BuildHtmlBody(BookingConfirmationEmailData d)
     {
         var rows = string.Join("", d.Rooms.Select(r =>
-            $"<tr><td>{r.RoomTypeName}</td><td>{r.RoomNumber}</td><td>${r.PricePerNight:F2}/night</td></tr>"));
+            $"<tr><td>{r.RoomTypeName}</td><td>{r.RoomNumber}</td><td>{FormatMoney(r.PricePerNight, r.Currency)}/night</td></tr>"));
 
         return $"""
             <html><body style="font-family:Arial,sans-serif">
@@ -80,7 +80,7 @@ internal sealed class SmtpEmailService(
               <tr><th>Room Type</th><th>Room Number</th><th>Price</th></tr>
               {rows}
             </table>
-            <p><strong>Total Amount:</strong> ${d.TotalAmount:F2}</p>
+            <p><strong>Total Amount:</strong> {FormatMoney(d.TotalAmount, d.Currency)}</p>
             <p><strong>Transaction Ref:</strong> {d.TransactionRef}</p>
             <p>Thank you for booking with HotelBooking!</p>
             </body></html>
@@ -91,6 +91,15 @@ internal sealed class SmtpEmailService(
         $"Booking Confirmed: {d.BookingNumber}\n" +
         $"Hotel: {d.HotelName}\n" +
         $"Check-in: {d.CheckIn:yyyy-MM-dd} / Check-out: {d.CheckOut:yyyy-MM-dd}\n" +
-        $"Total: ${d.TotalAmount:F2}\n" +
+        $"Total: {FormatMoney(d.TotalAmount, d.Currency)}\n" +
         $"Transaction: {d.TransactionRef}";
+
+    private static string FormatMoney(decimal amount, string currency)
+    {
+        var normalizedCurrency = string.IsNullOrWhiteSpace(currency)
+            ? "USD"
+            : currency.Trim().ToUpperInvariant();
+
+        return $"{normalizedCurrency} {amount:F2}";
+    }
 }

@@ -1,0 +1,1 @@
+﻿public sealed record UpdateImageRequest(string? Caption, int SortOrder);

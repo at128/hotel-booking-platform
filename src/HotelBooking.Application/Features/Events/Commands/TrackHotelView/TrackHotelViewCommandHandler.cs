@@ -6,10 +6,13 @@ using Microsoft.EntityFrameworkCore;
 
 namespace HotelBooking.Application.Features.Events.Commands.TrackHotelView;
 
-public sealed class TrackHotelViewCommandHandler(IAppDbContext context)
+public sealed class TrackHotelViewCommandHandler(
+    IAppDbContext context,
+    ICacheInvalidator? cacheInvalidator = null)
     : IRequestHandler<TrackHotelViewCommand, Result<Success>>
 {
     private static readonly TimeSpan DedupWindow = TimeSpan.FromMinutes(5);
+    private const string TrendingCitiesCacheKey = "home:trending-cities";
 
     public async Task<Result<Success>> Handle(TrackHotelViewCommand cmd, CancellationToken ct)
     {
@@ -30,6 +33,8 @@ public sealed class TrackHotelViewCommandHandler(IAppDbContext context)
             try
             {
                 await context.SaveChangesAsync(ct);
+                if (cacheInvalidator is not null)
+                    await cacheInvalidator.RemoveAsync(TrendingCitiesCacheKey, ct);
                 return Result.Success;
             }
             catch (DbUpdateException ex) when (IsLikelyUniqueConstraintViolation(ex))
@@ -48,6 +53,8 @@ public sealed class TrackHotelViewCommandHandler(IAppDbContext context)
 
         existingVisit.UpdateVisitTime();
         await context.SaveChangesAsync(ct);
+        if (cacheInvalidator is not null)
+            await cacheInvalidator.RemoveAsync(TrendingCitiesCacheKey, ct);
 
         return Result.Success;
     }

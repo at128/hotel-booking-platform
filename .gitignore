@@ -83,6 +83,7 @@ secrets/
 ## Uploads & Generated Files
 uploads/
 wwwroot/images/uploads/
+src/HotelBooking.Api/wwwroot/images/hotels/
 generated-pdfs/
 
 ## OS Files
@@ -96,6 +97,7 @@ docker-compose.override.yml
 ## Test Results
 TestResults/
 coverage/
+tests/coverage-merged/
 *.trx
 *.coveragexml
 

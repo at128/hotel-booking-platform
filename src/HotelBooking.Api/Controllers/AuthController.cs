@@ -1,4 +1,5 @@
-﻿using Asp.Versioning;
+using Asp.Versioning;
+using HotelBooking.Application.Features.Auth.Commands.ChangePassword;
 using HotelBooking.Application.Features.Auth.Commands.Login;
 using HotelBooking.Application.Features.Auth.Commands.LogoutAllSessions;
 using HotelBooking.Application.Features.Auth.Commands.LogoutCurrentSession;
@@ -53,6 +54,7 @@ public sealed class AuthController(ISender sender) : ApiController
 
     /// <summary>Get the current user's profile.</summary>
     [Authorize]
+    [EnableRateLimiting("user-read")]
     [HttpGet("profile")]
     [ProducesResponseType(typeof(ProfileResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -69,6 +71,7 @@ public sealed class AuthController(ISender sender) : ApiController
 
     /// <summary>Update the current user's profile.</summary>
     [Authorize]
+    [EnableRateLimiting("user-write")]
     [HttpPut("profile")]
     [ProducesResponseType(typeof(ProfileResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -82,6 +85,33 @@ public sealed class AuthController(ISender sender) : ApiController
         return result.Match(Ok, Problem);
     }
 
+    /// <summary>Change the current user's password.</summary>
+    [Authorize]
+    [EnableRateLimiting("user-write")]
+    [HttpPost("change-password")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> ChangePassword(
+        [FromBody] ChangePasswordRequest request,
+        CancellationToken ct)
+    {
+        var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+        if (!Guid.TryParse(userIdStr, out var userId))
+            return Unauthorized();
+
+        var result = await sender.Send(new ChangePasswordCommand(
+            userId.ToString(),
+            request.CurrentPassword,
+            request.NewPassword), ct);
+
+        return result.Match(
+            _ => NoContent(),
+            Problem);
+    }
+
+    [EnableRateLimiting("auth-refresh")]
     [HttpPost("refresh")]
     [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
     [ProducesResponseType(typeof(TokenResponse), StatusCodes.Status200OK)]
@@ -94,6 +124,7 @@ public sealed class AuthController(ISender sender) : ApiController
 
 
     [Authorize]
+    [EnableRateLimiting("user-write")]
     [HttpPost("logout")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Logout(CancellationToken ct)
@@ -109,6 +140,7 @@ public sealed class AuthController(ISender sender) : ApiController
 
 
     [Authorize]
+    [EnableRateLimiting("user-write")]
     [HttpPost("logout-all")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> LogoutAllSessions(CancellationToken ct)

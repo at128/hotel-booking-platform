@@ -36,7 +36,8 @@ namespace HotelBooking.Infrastructure.Data.Configurations
                 .OnDelete(DeleteBehavior.Restrict);
 
             builder.HasIndex(r => new { r.HotelId, r.RoomNumber })
-                .IsUnique();
+                    .IsUnique()
+                    .HasFilter("[DeletedAtUtc] IS NULL");
 
             // Composite unique — for Composite FK from BookingRoom
             builder.HasIndex(r => new { r.Id, r.HotelId })

@@ -12,5 +12,9 @@ public sealed class CreateBookingCommandValidator : AbstractValidator<CreateBook
             .Cascade(CascadeMode.Stop)
             .NotEmpty().WithMessage("At least one checkout hold is required.")
             .Must(ids => ids.Count <= 20).WithMessage("Too many holds in one booking.");
+
+        RuleFor(x => x.Notes)
+            .MaximumLength(1000)
+            .When(x => !string.IsNullOrWhiteSpace(x.Notes));
     }
 }

@@ -1,16 +1,15 @@
-﻿namespace HotelBooking.Contracts.Admin;
+﻿using HotelBooking.Domain.Rooms;
+
+namespace HotelBooking.Contracts.Admin;
 
 public sealed record RoomDto(
     Guid Id,
     Guid HotelId,
     string HotelName,
-    Guid RoomTypeId,
+    Guid HotelRoomTypeId,
     string RoomTypeName,
-    decimal PricePerNight,
-    short AdultCapacity,
-    short ChildCapacity,
-    short MaxOccupancy,
-    string? Description,
-    int RoomCount,
+    string RoomNumber,
+    short? Floor,
+    RoomStatus Status,
     DateTimeOffset CreatedAtUtc,
-    DateTimeOffset? ModifiedAtUtc);
+    DateTimeOffset LastModifiedUtc);

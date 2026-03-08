@@ -4,9 +4,11 @@ using HotelBooking.Application.Features.Home.Queries.GetSearchConfig;
 using HotelBooking.Application.Features.Home.Queries.GetTrendingCities;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace HotelBooking.Api.Controllers;
 
+[EnableRateLimiting("public-read")]
 public sealed class HomeController(ISender sender) : ApiController
 {
     /// <summary>

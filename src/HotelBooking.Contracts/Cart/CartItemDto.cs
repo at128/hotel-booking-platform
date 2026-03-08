@@ -1,12 +1,12 @@
-﻿namespace HotelBooking.Contracts.Cart;
-
-public sealed record CartItemDto(
+﻿public sealed record CartItemDto(
     Guid Id,
     Guid HotelId,
     string HotelName,
     Guid HotelRoomTypeId,
     string RoomTypeName,
-    int MaxOccupancy,
+    short MaxOccupancy,
+    int Adults,
+    int Children,
     decimal PricePerNight,
     DateOnly CheckIn,
     DateOnly CheckOut,

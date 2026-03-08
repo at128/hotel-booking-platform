@@ -2,6 +2,7 @@
 using HotelBooking.Application.Common.Models.Payment;
 using HotelBooking.Domain.Bookings.Enums;
 using HotelBooking.Domain.Common.Results;
+using HotelBooking.Domain.Rooms;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -262,13 +263,16 @@ public sealed class HandlePaymentWebhookCommandHandler(
                 return;
             }
 
+            var currency = "USD";
+
             var bookingRooms = await db.BookingRooms
                 .AsNoTracking()
                 .Where(br => br.BookingId == payment.BookingId)
                 .Select(br => new BookingRoomEmailItem(
                     br.RoomTypeName,
                     br.RoomNumber,
-                    br.PricePerNight))
+                    br.PricePerNight,
+                    currency))
                 .ToListAsync(ct);
 
             var emailData = new BookingConfirmationEmailData(
@@ -279,6 +283,7 @@ public sealed class HandlePaymentWebhookCommandHandler(
                 CheckOut: payment.Booking.CheckOut,
                 Nights: payment.Booking.CheckOut.DayNumber - payment.Booking.CheckIn.DayNumber,
                 TotalAmount: payment.Booking.TotalAmount,
+                Currency: currency,
                 TransactionRef: evt.TransactionRef ?? evt.ProviderSessionId ?? string.Empty,
                 Rooms: bookingRooms);
 

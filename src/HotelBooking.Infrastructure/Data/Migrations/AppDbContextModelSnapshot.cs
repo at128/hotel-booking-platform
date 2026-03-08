@@ -78,8 +78,8 @@ namespace HotelBooking.Infrastructure.Data.Migrations
 
                     b.Property<string>("UserEmail")
                         .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<Guid>("UserId")
                         .HasColumnType("uniqueidentifier");
@@ -88,6 +88,14 @@ namespace HotelBooking.Infrastructure.Data.Migrations
 
                     b.HasIndex("BookingNumber")
                         .IsUnique();
+
+                    b.HasIndex("HotelId");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("CheckIn", "CheckOut");
 
                     b.HasIndex("HotelId", "CheckIn", "CheckOut", "Status");
 
@@ -333,11 +341,17 @@ namespace HotelBooking.Infrastructure.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<int>("Adults")
+                        .HasColumnType("int");
+
                     b.Property<DateOnly>("CheckIn")
                         .HasColumnType("date");
 
                     b.Property<DateOnly>("CheckOut")
                         .HasColumnType("date");
+
+                    b.Property<int>("Children")
+                        .HasColumnType("int");
 
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("datetimeoffset");
@@ -545,6 +559,14 @@ namespace HotelBooking.Infrastructure.Data.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CityId");
+
+                    b.HasIndex("DeletedAtUtc");
+
+                    b.HasIndex("MinPricePerNight");
+
+                    b.HasIndex("StarRating");
+
                     b.HasIndex("Id", "CityId")
                         .IsUnique();
 
@@ -593,6 +615,9 @@ namespace HotelBooking.Infrastructure.Data.Migrations
 
                     b.Property<DateTimeOffset>("LastModifiedUtc")
                         .HasColumnType("datetimeoffset");
+
+                    b.Property<short>("MaxOccupancy")
+                        .HasColumnType("smallint");
 
                     b.Property<decimal>("PricePerNight")
                         .HasPrecision(10, 2)
@@ -698,7 +723,9 @@ namespace HotelBooking.Infrastructure.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("HotelId");
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("HotelId", "VisitedAtUtc");
 
                     b.HasIndex("UserId", "HotelId")
                         .IsUnique();
@@ -797,7 +824,9 @@ namespace HotelBooking.Infrastructure.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("BookingId");
+                    b.HasIndex("BookingId")
+                        .IsUnique()
+                        .HasFilter("[DeletedAtUtc] IS NULL");
 
                     b.HasIndex("HotelId");
 
@@ -847,7 +876,8 @@ namespace HotelBooking.Infrastructure.Data.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("HotelId", "RoomNumber")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("[DeletedAtUtc] IS NULL");
 
                     b.HasIndex("HotelRoomTypeId", "HotelId");
 

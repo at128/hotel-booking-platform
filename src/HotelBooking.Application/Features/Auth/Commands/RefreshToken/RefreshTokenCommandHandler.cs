@@ -20,17 +20,24 @@ public sealed class RefreshTokenCommandHandler(
     private readonly RefreshTokenSettings _rtSettings = rtOptions.Value;
 
     public async Task<Result<TokenResponse>> Handle(
-        RefreshTokenCommand cmd, CancellationToken ct)
+         RefreshTokenCommand cmd, CancellationToken ct)
     {
+
         var rawToken = cookieService.GetRefreshTokenFromCookie();
-       if (string.IsNullOrWhiteSpace(rawToken))
-             return ApplicationErrors.Auth.InvalidRefreshToken;
+
+        if (string.IsNullOrWhiteSpace(rawToken))
+            return ApplicationErrors.Auth.InvalidRefreshToken;
 
         var tokenHash = tokenProvider.HashToken(rawToken);
+
         var stored = await refreshTokenRepository.GetByHashAsync(tokenHash, ct);
 
         if (stored is null)
+        {
+            cookieService.RemoveRefreshTokenCookie();
             return ApplicationErrors.Auth.InvalidRefreshToken;
+        }
+
 
         if (stored.IsUsed)
         {
@@ -46,15 +53,23 @@ public sealed class RefreshTokenCommandHandler(
         }
 
         var userResult = await identityService.GetUserByIdAsync(stored.UserId, ct);
-        if (userResult.IsError) return userResult.TopError;
+
+        if (userResult.IsError)
+        {
+            await refreshTokenRepository.RevokeAllFamilyAsync(stored.Family, ct);
+            cookieService.RemoveRefreshTokenCookie();
+            return userResult.TopError;
+        }
 
         var user = userResult.Value;
+
         var appUser = new AppUserDto(
             user.Id, user.Email,
             user.FirstName, user.LastName,
             [user.Role]);
 
         var newTokenResult = tokenProvider.GenerateJwtToken(appUser);
+
         if (newTokenResult.IsError) return newTokenResult.TopError;
 
         var newRawRT = tokenProvider.GenerateRefreshToken();
@@ -64,7 +79,7 @@ public sealed class RefreshTokenCommandHandler(
             Id: Guid.CreateVersion7(),
             UserId: user.Id,
             TokenHash: newRTHash,
-            Family: stored.Family, 
+            Family: stored.Family,
             IsActive: true,
             IsUsed: false,
             IsRevoked: false,
@@ -79,12 +94,10 @@ public sealed class RefreshTokenCommandHandler(
 
         if (!rotated)
         {
-            // Race condition: someone else used this token between our check and rotation
             await refreshTokenRepository.RevokeAllFamilyAsync(stored.Family, ct);
             cookieService.RemoveRefreshTokenCookie();
             return ApplicationErrors.Auth.RefreshTokenReuse;
         }
-
 
         cookieService.SetRefreshTokenCookie(newRawRT);
 

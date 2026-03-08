@@ -31,6 +31,12 @@ public static class ApplicationErrors
 
         public static readonly Error RefreshTokenReuse =
             Error.Failure("Auth.RefreshTokenReuse", "Refresh token reuse detected. Please login again.");
+
+        public static readonly Error InvalidCurrentPassword =
+            Error.Unauthorized("Auth.InvalidCurrentPassword", "Current password is incorrect.");
+
+        public static Error PasswordChangeFailed(string details) =>
+            Error.Validation("Auth.PasswordChangeFailed", $"Password change failed: {details}");
     }
     public static class Cart
     {
@@ -59,6 +65,13 @@ public static class ApplicationErrors
         public static Error InvalidQuantity(int max) =>
             Error.Validation("Cart.InvalidQuantity",
                 $"Quantity must be between 1 and {max}.");
+
+        public static readonly Error InvalidGuests =
+    Error.Validation("Cart.InvalidGuests", "Adults and children counts are invalid.");
+
+        public static readonly Error RoomOccupancyExceeded =
+            Error.Validation("Cart.RoomOccupancyExceeded", "Selected room cannot accommodate the requested guests.");
+
     }
 
     public static class Checkout
@@ -69,6 +82,11 @@ public static class ApplicationErrors
 
         public static readonly Error CartEmpty =
             Error.Validation("Checkout.CartEmpty", "Your cart is empty.");
+
+        public static readonly Error MultipleHotelsNotAllowed =
+    Error.Validation(
+        "Checkout.MultipleHotelsNotAllowed",
+        "Checkout can only be created for rooms from a single hotel.");
 
         public static readonly Error HoldExpired =
             Error.Conflict("Checkout.HoldExpired",

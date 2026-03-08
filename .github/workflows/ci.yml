@@ -1,56 +1,203 @@
-﻿name: CI — Build & Test
+﻿name: CI
 
 on:
   push:
     branches: [dev, main]
   pull_request:
     branches: [dev, main]
+  workflow_dispatch:
 
 permissions:
   contents: read
-  actions: write
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
-  DOTNET_VERSION: '9.0.x'
+  DOTNET_VERSION: '9.0.x' # إذا عندك global.json خلّيه يحدد، أو عدّلها لـ 8.0.x
+  SOLUTION_PATH: HotelBooking.sln
+  BUILD_CONFIGURATION: Release
   DOTNET_NOLOGO: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
+  CI: 'true'
+
+  # CI fake-safe settings (لا تستخدم secrets حقيقية هنا)
+  ASPNETCORE_ENVIRONMENT: CI
+  STRIPE__SECRETKEY: sk_test_fake_do_not_use
+  STRIPE__WEBHOOKSECRET: whsec_fake_do_not_use
+  PAYMENTS__DISABLE_EXTERNAL_CALLS: 'true'
+  DISABLE_BACKGROUND_JOBS: 'true'
 
 jobs:
-  build:
-    name: 🔨 Build & Compile
+  build_test_coverage:
+    name: Build + Tests + Coverage
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: ${{ env.DOTNET_VERSION }}
-      - name: Restore
-        run: dotnet restore
-      - name: Build
-        run: dotnet build --no-restore --configuration Release
 
-  unit-tests:
-    name: 🧪 Unit Tests
-    needs: build
-    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
+          cache: true
+          cache-dependency-path: |
+            **/*.csproj
+            **/packages.lock.json
+            global.json
+            nuget.config
+            Directory.Packages.props
+
+      - name: .NET info
+        run: dotnet --info
+
       - name: Restore
-        run: dotnet restore
-      - name: Run Unit Tests
+        run: dotnet restore ${{ env.SOLUTION_PATH }}
+
+      - name: Format check (optional / recommended)
+        if: ${{ vars.ENABLE_DOTNET_FORMAT == 'true' }}
+        run: dotnet format ${{ env.SOLUTION_PATH }} --verify-no-changes --no-restore
+
+      - name: Build
+        run: dotnet build ${{ env.SOLUTION_PATH }} --no-restore --configuration ${{ env.BUILD_CONFIGURATION }}
+
+      - name: Vulnerability scan (optional)
+        if: ${{ vars.ENABLE_VULNERABILITY_SCAN == 'true' }}
+        continue-on-error: true
         run: |
-          dotnet test --no-restore --configuration Release \
-            --filter "Category!=Integration&Category!=E2E" \
-            --verbosity normal \
-            --logger "trx;LogFileName=unit-tests.trx"
-      - name: Upload test results
-        uses: actions/upload-artifact@v4
+          mkdir -p artifacts/security
+          dotnet list ${{ env.SOLUTION_PATH }} package --vulnerable --include-transitive | tee artifacts/security/package-vulnerabilities.txt
+
+      - name: Run tests from tests/ + collect coverage
+        id: run_tests
+        shell: bash
+        run: |
+          set -uo pipefail
+          shopt -s globstar nullglob
+
+          mkdir -p artifacts/test-results
+          mkdir -p artifacts/coverage-report
+
+          failed=0
+          executed=0
+          skipped_non_test=0
+
+          mapfile -t projects < <(printf '%s\n' tests/**/*.csproj | sort)
+
+          if [ ${#projects[@]} -eq 0 ]; then
+            echo "No csproj files found under tests/"
+            echo "failed=1" >> "$GITHUB_OUTPUT"
+            echo "executed=0" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "Discovered projects under tests/:"
+          printf ' - %s\n' "${projects[@]}"
+
+          for proj in "${projects[@]}"; do
+            # تخطي المشاريع المساعدة غير الاختبارية مثل Tests.Common
+            if ! grep -qi "Microsoft.NET.Test.Sdk" "$proj"; then
+              echo "Skipping non-test project: $proj"
+              skipped_non_test=$((skipped_non_test + 1))
+              continue
+            fi
+
+            executed=$((executed + 1))
+            name="$(basename "$proj" .csproj)"
+            outdir="artifacts/test-results/$name"
+            mkdir -p "$outdir"
+
+            echo "===================================="
+            echo "Running tests for: $name"
+            echo "===================================="
+
+            dotnet test "$proj" \
+              --configuration "${BUILD_CONFIGURATION}" \
+              --no-build \
+              --logger "trx;LogFileName=${name}.trx" \
+              --results-directory "$outdir" \
+              --collect:"XPlat Code Coverage" \
+              -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura \
+              || failed=1
+          done
+
+          echo "failed=$failed" >> "$GITHUB_OUTPUT"
+          echo "executed=$executed" >> "$GITHUB_OUTPUT"
+
+          echo "Executed test projects: $executed"
+          echo "Skipped non-test projects: $skipped_non_test"
+
+      - name: Install ReportGenerator
         if: always()
+        run: |
+          dotnet tool install --global dotnet-reportgenerator-globaltool
+          echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
+
+      - name: Merge coverage + generate report
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if compgen -G "artifacts/test-results/**/coverage.cobertura.xml" > /dev/null; then
+            reportgenerator \
+              -reports:"artifacts/test-results/**/coverage.cobertura.xml" \
+              -targetdir:"artifacts/coverage-report" \
+              -reporttypes:"HtmlInline;Cobertura;MarkdownSummaryGithub;TextSummary"
+
+            if [ -f artifacts/coverage-report/SummaryGithub.md ]; then
+              {
+                echo "## Coverage Summary"
+                cat artifacts/coverage-report/SummaryGithub.md
+              } >> "$GITHUB_STEP_SUMMARY"
+            fi
+          else
+            echo "No coverage files found." | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          name: unit-test-results
-          path: "**/TestResults/*.trx"
+          name: ci-test-results-${{ github.run_id }}
+          path: artifacts/test-results/**
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-coverage-report-${{ github.run_id }}
+          path: artifacts/coverage-report/**
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload security scan (optional)
+        if: always() && vars.ENABLE_VULNERABILITY_SCAN == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-security-scan-${{ github.run_id }}
+          path: artifacts/security/**
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Fail if tests failed / no tests executed
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ "${{ steps.run_tests.outputs.executed }}" = "0" ]; then
+            echo "No executable test projects ran. Failing CI."
+            exit 1
+          fi
+
+          if [ "${{ steps.run_tests.outputs.failed }}" != "0" ]; then
+            echo "One or more tests failed."
+            exit 1
+          fi
+
+          echo "All tests passed."

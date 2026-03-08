@@ -19,7 +19,9 @@ namespace HotelBooking.Domain.Cart
             Guid hotelRoomTypeId,
             DateOnly checkIn,
             DateOnly checkOut,
-            int quantity)
+            int quantity,
+            int adults,
+            int children)
             : base(id)
         {
             UserId = userId;
@@ -28,6 +30,9 @@ namespace HotelBooking.Domain.Cart
             CheckIn = checkIn;
             CheckOut = checkOut;
             Quantity = quantity;
+            CreatedAtUtc = DateTimeOffset.UtcNow;
+            Adults = adults;
+            Children = children;
         }
 
         public Guid UserId { get; private set; }
@@ -37,6 +42,8 @@ namespace HotelBooking.Domain.Cart
         public DateOnly CheckOut { get; private set; }
         public int Quantity { get; private set; }
         public DateTimeOffset CreatedAtUtc { get; private set; }
+        public int Adults { get; private set; }
+        public int Children { get; private set; }
 
         public Hotel Hotel { get; private set; } = null!;
         public HotelRoomType HotelRoomType { get; private set; } = null!;

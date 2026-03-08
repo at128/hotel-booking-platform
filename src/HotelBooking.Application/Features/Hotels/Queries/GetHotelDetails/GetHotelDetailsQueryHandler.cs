@@ -47,7 +47,8 @@ public sealed class GetHotelDetailsQueryHandler(IAppDbContext context)
                     hrt.Description,
                     hrt.PricePerNight,
                     hrt.AdultCapacity,
-                    hrt.ChildCapacity))
+                    hrt.ChildCapacity,
+                    hrt.MaxOccupancy))
                 .ToList());
     }
 }

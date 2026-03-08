@@ -6,10 +6,12 @@ public sealed record RoomAvailabilityDto(
     decimal PricePerNight,
     short AdultCapacity,
     short ChildCapacity,
+    short MaxOccupancy,
     int TotalRooms,
     int BookedRooms,
     int HeldRooms,
-    int AvailableRooms);
+    int AvailableRooms,
+    List<string> Images);
 
 public sealed record RoomAvailabilityResponse(
     Guid HotelId,

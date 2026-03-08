@@ -25,4 +25,5 @@ public sealed record HotelRoomTypeDto(
     string? Description,
     decimal PricePerNight,
     short AdultCapacity,
-    short ChildCapacity);
+    short ChildCapacity,
+    short MaxOccupancy);

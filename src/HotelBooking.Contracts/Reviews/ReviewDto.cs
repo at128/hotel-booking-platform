@@ -5,6 +5,7 @@ public sealed record ReviewDto(
     Guid HotelId,
     Guid BookingId,
     Guid UserId,
+    string? ReviewerName,
     short Rating,
     string? Title,
     string? Comment,

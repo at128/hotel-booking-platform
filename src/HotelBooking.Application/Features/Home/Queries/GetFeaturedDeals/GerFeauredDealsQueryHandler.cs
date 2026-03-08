@@ -21,6 +21,7 @@ public sealed class GetFeaturedDealsQueryHandler(IAppDbContext context)
                 (fd.StartsAtUtc == null || now >= fd.StartsAtUtc) &&
                 (fd.EndsAtUtc == null || now <= fd.EndsAtUtc))
             .OrderBy(fd => fd.DisplayOrder)
+            .Take(5)
             .Select(fd => new FeaturedDealDto(
                 fd.Id,
                 fd.HotelId,

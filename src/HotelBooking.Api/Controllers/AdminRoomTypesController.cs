@@ -1,16 +1,19 @@
-﻿using HotelBooking.Application.Features.Admin.RoomTypes.Commands.CreateRoomType;
+using HotelBooking.Application.Features.Admin.RoomTypes.Commands.CreateRoomType;
 using HotelBooking.Application.Features.Admin.RoomTypes.Commands.DeleteRoomType;
 using HotelBooking.Application.Features.Admin.RoomTypes.Commands.UpdateRoomType;
 using HotelBooking.Application.Features.Admin.RoomTypes.Queries.GetRoomTypeById;
 using HotelBooking.Application.Features.Admin.RoomTypes.Queries.GetRoomTypes;
 using HotelBooking.Contracts.Admin;
+using HotelBooking.Domain.Common.Constants;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace HotelBooking.Api.Controllers;
 
-[Authorize(Roles = "Admin")]
+[Authorize(Roles = HotelBookingConstants.Roles.Admin)]
+[EnableRateLimiting("admin")]
 public sealed class AdminRoomTypesController(ISender sender) : ApiController
 {
     [HttpGet]

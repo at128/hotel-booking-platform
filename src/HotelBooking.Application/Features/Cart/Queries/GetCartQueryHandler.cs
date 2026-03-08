@@ -36,19 +36,22 @@ public sealed class GetCartQueryHandler(IAppDbContext db)
         {
             var rt = item.HotelRoomType;
             var subtotal = rt.PricePerNight * nights * item.Quantity;
+
             return new CartItemDto(
-                Id: item.Id,
-                HotelId: item.HotelId,
-                HotelName: item.Hotel.Name,
-                HotelRoomTypeId: item.HotelRoomTypeId,
-                RoomTypeName: rt.RoomType.Name,
-                MaxOccupancy: rt.AdultCapacity,
-                PricePerNight: rt.PricePerNight,
-                CheckIn: item.CheckIn,
-                CheckOut: item.CheckOut,
-                Nights: nights,
-                Quantity: item.Quantity,
-                Subtotal: subtotal);
+                    Id: item.Id,
+                    HotelId: item.HotelId,
+                    HotelName: item.Hotel.Name,
+                    HotelRoomTypeId: item.HotelRoomTypeId,
+                    RoomTypeName: rt.RoomType.Name,
+                    MaxOccupancy: rt.MaxOccupancy,
+                    Adults: item.Adults,
+                    Children: item.Children,
+                    PricePerNight: rt.PricePerNight,
+                    CheckIn: item.CheckIn,
+                    CheckOut: item.CheckOut,
+                    Nights: nights,
+                    Quantity: item.Quantity,
+                    Subtotal: subtotal);
         }).ToList();
 
         return new CartResponse(

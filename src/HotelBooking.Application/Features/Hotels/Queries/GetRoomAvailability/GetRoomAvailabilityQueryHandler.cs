@@ -4,6 +4,7 @@ using HotelBooking.Domain.Bookings;
 using HotelBooking.Domain.Bookings.Enums;
 using HotelBooking.Domain.Common.Results;
 using HotelBooking.Domain.Hotels;
+using HotelBooking.Domain.Hotels.Enums;
 using HotelBooking.Domain.Rooms;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -25,20 +26,39 @@ public sealed class GetRoomAvailabilityQueryHandler(IAppDbContext context)
         var now = DateTimeOffset.UtcNow;
 
         var roomTypes = await context.HotelRoomTypes
-                .AsNoTracking()
-                .Where(hrt => hrt.HotelId == q.HotelId && hrt.DeletedAtUtc == null)
-                .Select(hrt => new
-                {
-                    hrt.Id,
-                    RoomTypeName = hrt.RoomType.Name,
-                    hrt.PricePerNight,
-                    hrt.AdultCapacity,
-                    hrt.ChildCapacity,
-                    TotalRooms = hrt.Rooms.Count(r =>
-                        r.Status == RoomStatus.Available &&
-                        r.DeletedAtUtc == null)
-                })
-                .ToListAsync(ct);
+            .AsNoTracking()
+            .Where(hrt => hrt.HotelId == q.HotelId && hrt.DeletedAtUtc == null)
+            .Select(hrt => new
+            {
+                hrt.Id,
+                RoomTypeName = hrt.RoomType.Name,
+                hrt.PricePerNight,
+                hrt.AdultCapacity,
+                hrt.ChildCapacity,
+                hrt.MaxOccupancy,
+                TotalRooms = hrt.Rooms.Count(r =>
+                    r.Status == RoomStatus.Available &&
+                    r.DeletedAtUtc == null)
+            })
+            .ToListAsync(ct);
+
+        var roomTypeIds = roomTypes.Select(x => x.Id).ToList();
+
+        var roomTypeImages = await context.Images
+            .AsNoTracking()
+            .Where(i => i.EntityType == ImageType.RoomType
+                && roomTypeIds.Contains(i.EntityId))
+            .OrderBy(i => i.SortOrder)
+            .Select(i => new
+            {
+                i.EntityId,
+                i.Url
+            })
+            .ToListAsync(ct);
+
+        var imagesByType = roomTypeImages
+            .GroupBy(x => x.EntityId)
+            .ToDictionary(g => g.Key, g => g.Select(x => x.Url).ToList());
 
         var bookedCounts = await context.Bookings
             .AsNoTracking()
@@ -72,6 +92,7 @@ public sealed class GetRoomAvailabilityQueryHandler(IAppDbContext context)
             var booked = bookedByType.GetValueOrDefault(hrt.Id, 0);
             var held = heldByType.GetValueOrDefault(hrt.Id, 0);
             var available = Math.Max(0, totalRooms - booked - held);
+            var images = imagesByType.GetValueOrDefault(hrt.Id, new List<string>());
 
             return new RoomAvailabilityDto(
                 hrt.Id,
@@ -79,10 +100,12 @@ public sealed class GetRoomAvailabilityQueryHandler(IAppDbContext context)
                 hrt.PricePerNight,
                 hrt.AdultCapacity,
                 hrt.ChildCapacity,
+                hrt.MaxOccupancy,
                 totalRooms,
                 booked,
                 held,
-                available
+                available,
+                images
             );
         }).ToList();
 

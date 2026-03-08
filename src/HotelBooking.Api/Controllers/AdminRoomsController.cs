@@ -1,16 +1,19 @@
-﻿using HotelBooking.Application.Features.Admin.Rooms.Commands.CreateRoom;
+using HotelBooking.Application.Features.Admin.Rooms.Commands.CreateRoom;
 using HotelBooking.Application.Features.Admin.Rooms.Commands.DeleteRoom;
 using HotelBooking.Application.Features.Admin.Rooms.Commands.UpdateRoom;
 using HotelBooking.Application.Features.Admin.Rooms.Quries.GetRoomById;
 using HotelBooking.Application.Features.Admin.Rooms.Quries.GetRooms;
 using HotelBooking.Contracts.Admin;
+using HotelBooking.Domain.Common.Constants;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace HotelBooking.Api.Controllers;
 
-[Authorize(Roles = "Admin")]
+[Authorize(Roles = HotelBookingConstants.Roles.Admin)]
+[EnableRateLimiting("admin")]
 public sealed class AdminRoomsController(ISender sender) : ApiController
 {
     [HttpGet]
@@ -40,6 +43,7 @@ public sealed class AdminRoomsController(ISender sender) : ApiController
 
     [HttpPost]
     [ProducesResponseType(typeof(RoomDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> CreateRoom(
@@ -48,12 +52,10 @@ public sealed class AdminRoomsController(ISender sender) : ApiController
     {
         var result = await sender.Send(
             new CreateRoomCommand(
-                request.HotelId,
-                request.RoomTypeId,
-                request.PricePerNight,
-                request.AdultCapacity,
-                request.ChildCapacity,
-                request.Description),
+                request.HotelRoomTypeId,
+                request.RoomNumber,
+                request.Floor,
+                request.Status),
             ct);
 
         return result.Match(
@@ -63,8 +65,9 @@ public sealed class AdminRoomsController(ISender sender) : ApiController
 
     [HttpPut("{id:guid}")]
     [ProducesResponseType(typeof(RoomDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> UpdateRoom(
         Guid id,
         [FromBody] UpdateRoomRequest request,
@@ -73,10 +76,9 @@ public sealed class AdminRoomsController(ISender sender) : ApiController
         var result = await sender.Send(
             new UpdateRoomCommand(
                 id,
-                request.PricePerNight,
-                request.AdultCapacity,
-                request.ChildCapacity,
-                request.Description),
+                request.RoomNumber,
+                request.Floor,
+                request.Status),
             ct);
 
         return result.Match(Ok, Problem);

@@ -17,10 +17,17 @@ namespace HotelBooking.Infrastructure.Data.Configurations
 
             builder.HasKey(hrt => hrt.Id);
 
-            builder.Property(hrt => hrt.PricePerNight)
-                .HasPrecision(10, 2)
+            builder.Property(hrt => hrt.AdultCapacity)
                 .IsRequired();
 
+            builder.Property(hrt => hrt.ChildCapacity)
+                .IsRequired();
+            builder.Property(hrt => hrt.PricePerNight)
+                    .HasPrecision(10, 2)
+                    .IsRequired();
+
+            builder.Property(hrt => hrt.MaxOccupancy)
+                .IsRequired();
             builder.Property(hrt => hrt.Description)
                 .HasMaxLength(500);
 

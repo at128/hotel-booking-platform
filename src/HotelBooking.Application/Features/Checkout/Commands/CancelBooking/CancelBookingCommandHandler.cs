@@ -128,8 +128,15 @@ public sealed class CancelBookingCommandHandler(
                 "Cannot cancel a booking on or after the check-in date.");
         }
 
-        // NOTE: This assumes LastModifiedUtc approximates confirmation time in current model.
-        var confirmedAt = booking.LastModifiedUtc;
+        var confirmedAt = booking.Payments
+            .Where(p => p.Status == PaymentStatus.Succeeded)
+            .OrderByDescending(p => p.PaidAtUtc ?? p.CreatedAtUtc)
+            .Select(p => p.PaidAtUtc ?? p.CreatedAtUtc)
+            .FirstOrDefault();
+
+        if (confirmedAt == default)
+            confirmedAt = booking.CreatedAtUtc;
+
         var cancelledAt = DateTimeOffset.UtcNow;
         var hoursSinceConfirmation = (cancelledAt - confirmedAt).TotalHours;
 

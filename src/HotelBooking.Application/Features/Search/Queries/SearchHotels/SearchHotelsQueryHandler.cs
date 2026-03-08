@@ -6,10 +6,14 @@ using HotelBooking.Domain.Bookings.Enums;
 using HotelBooking.Domain.Common.Results;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace HotelBooking.Application.Features.Search.Queries.SearchHotels;
 
-public sealed class SearchHotelsQueryHandler(IAppDbContext context)
+public sealed class SearchHotelsQueryHandler(
+    IAppDbContext context,
+    IHotelSearchService searchService,
+    ILogger<SearchHotelsQueryHandler> logger)
     : IRequestHandler<SearchHotelsQuery, Result<SearchHotelsResponse>>
 {
     private const int DefaultAdults = 2;
@@ -30,14 +34,87 @@ public sealed class SearchHotelsQueryHandler(IAppDbContext context)
 
     public async Task<Result<SearchHotelsResponse>> Handle(SearchHotelsQuery q, CancellationToken ct)
     {
+        // ── Try Elasticsearch first ──
+        if (await TryElasticsearchAsync(q, ct) is { } esResult)
+        {
+            return esResult;
+        }
+
+        // ── Fallback to SQL Server ──
+        logger.LogWarning("Elasticsearch unavailable, falling back to SQL Server query");
+        return await ExecuteSqlFallbackAsync(q, ct);
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // Elasticsearch path
+    // ─────────────────────────────────────────────────────────────────
+
+    private async Task<Result<SearchHotelsResponse>?> TryElasticsearchAsync(
+        SearchHotelsQuery q, CancellationToken ct)
+    {
+        try
+        {
+            if (!await searchService.IsAvailableAsync(ct))
+                return null;
+
+            var request = new HotelSearchRequest(
+                Query: q.Query,
+                City: q.City,
+                RoomTypeId: q.RoomTypeId,
+                CheckIn: q.CheckIn,
+                CheckOut: q.CheckOut,
+                Adults: q.Adults,
+                Children: q.Children,
+                NumberOfRooms: q.NumberOfRooms,
+                MinPrice: q.MinPrice,
+                MaxPrice: q.MaxPrice,
+                MinStarRating: q.MinStarRating,
+                Amenities: q.Amenities,
+                SortBy: q.SortBy,
+                Cursor: q.Cursor,
+                Limit: q.Limit);
+
+            var result = await searchService.SearchAsync(request, ct);
+
+            // If ES returned a failure, fall back to SQL
+            if (!result.IsSuccess)
+            {
+                logger.LogWarning("Elasticsearch search failed, falling back to SQL Server");
+                return null;
+            }
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Elasticsearch call threw exception, falling back to SQL Server");
+            return null;
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // SQL Server fallback (original implementation preserved)
+    // ─────────────────────────────────────────────────────────────────
+
+    private async Task<Result<SearchHotelsResponse>> ExecuteSqlFallbackAsync(
+        SearchHotelsQuery q, CancellationToken ct)
+    {
+        var effectiveCheckIn = q.CheckIn ?? DateOnly.FromDateTime(DateTime.UtcNow.Date);
+        var effectiveCheckOut = q.CheckOut ?? effectiveCheckIn.AddDays(1);
+        var effectiveAdults = q.Adults ?? DefaultAdults;
+        var effectiveChildren = q.Children ?? DefaultChildren;
+        var effectiveRooms = Math.Max(DefaultRequiredRooms, q.NumberOfRooms ?? DefaultRequiredRooms);
+
         var query = context.Hotels
             .AsNoTracking()
             .AsSplitQuery()
             .Include(h => h.City)
-            .Include(h => h.HotelServices).ThenInclude(hs => hs.Service)
+            .Include(h => h.HotelServices)
+                .ThenInclude(hs => hs.Service)
             .AsQueryable();
 
-        ApplyCityFilter();
+        ApplyTextSearchFilter();
+        ApplyRoomTypeFilter();
         ApplyStarRatingFilter();
         ApplyPriceRangeFilter();
         ApplyOccupancyAndAvailabilityFilter();
@@ -83,14 +160,31 @@ public sealed class SearchHotelsQueryHandler(IAppDbContext context)
 
         return new SearchHotelsResponse(items, nextCursor, hasMore, limit);
 
+        // ── Local functions (same as original) ──
 
-        void ApplyCityFilter()
+        void ApplyTextSearchFilter()
         {
-            if (string.IsNullOrWhiteSpace(q.City))
+            var searchText = !string.IsNullOrWhiteSpace(q.Query)
+                ? q.Query
+                : q.City;
+
+            if (string.IsNullOrWhiteSpace(searchText))
                 return;
 
-            var city = Normalize(q.City);
-            query = query.Where(h => h.City.Name.ToLower().Contains(city));
+            var term = Normalize(searchText);
+
+            query = query.Where(h =>
+                h.Name.ToLower().Contains(term) ||
+                h.City.Name.ToLower().Contains(term));
+        }
+
+        void ApplyRoomTypeFilter()
+        {
+            if (!q.RoomTypeId.HasValue)
+                return;
+
+            query = query.Where(h =>
+                h.HotelRoomTypes.Any(rt => rt.RoomTypeId == q.RoomTypeId.Value));
         }
 
         void ApplyStarRatingFilter()
@@ -117,16 +211,14 @@ public sealed class SearchHotelsQueryHandler(IAppDbContext context)
 
             if (hasAvailabilityFilter)
             {
-                var adults = q.Adults ?? DefaultAdults;
-                var children = q.Children ?? DefaultChildren;
-                var checkIn = q.CheckIn!.Value;
-                var checkOut = q.CheckOut!.Value;
-                var requiredRooms = Math.Max(DefaultRequiredRooms, q.NumberOfRooms ?? DefaultRequiredRooms);
+                var checkIn = effectiveCheckIn;
+                var checkOut = effectiveCheckOut;
+                var requiredRooms = effectiveRooms;
                 var now = DateTimeOffset.UtcNow;
 
-                // Capacity + Availability must be satisfied by the SAME room type
                 query = query.Where(h => h.HotelRoomTypes.Any(rt =>
-                    (!hasOccupancyFilter || (rt.AdultCapacity >= adults && rt.ChildCapacity >= children)) &&
+                    (!q.RoomTypeId.HasValue || rt.RoomTypeId == q.RoomTypeId.Value) &&
+                    (!hasOccupancyFilter || (rt.AdultCapacity >= effectiveAdults && rt.ChildCapacity >= effectiveChildren)) &&
                     (
                         rt.Rooms.Count(r => r.DeletedAtUtc == null)
 
@@ -151,16 +243,13 @@ public sealed class SearchHotelsQueryHandler(IAppDbContext context)
                 return;
             }
 
-            // No dates provided => capacity-only filtering (if occupancy requested)
             if (!hasOccupancyFilter)
                 return;
 
-            var adultsOnly = q.Adults ?? DefaultAdults;
-            var childrenOnly = q.Children ?? DefaultChildren;
-
             query = query.Where(h => h.HotelRoomTypes.Any(rt =>
-                rt.AdultCapacity >= adultsOnly &&
-                rt.ChildCapacity >= childrenOnly));
+                (!q.RoomTypeId.HasValue || rt.RoomTypeId == q.RoomTypeId.Value) &&
+                rt.AdultCapacity >= effectiveAdults &&
+                rt.ChildCapacity >= effectiveChildren));
         }
 
         void ApplyAmenitiesFilter()
@@ -223,7 +312,6 @@ public sealed class SearchHotelsQueryHandler(IAppDbContext context)
                     (h.AverageRating == (double)cursor.Value && h.Id.CompareTo(cursor.Id) > 0))
             };
         }
-
     }
 
     private static SortMode ParseSortMode(string? sortBy)

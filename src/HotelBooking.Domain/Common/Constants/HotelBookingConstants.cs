@@ -80,7 +80,7 @@ public static class HotelBookingConstants
     public static class FieldLengths
     {
         // Auth / User
-        public const int EmailMaxLength = 256;
+        public const int EmailMaxLength = 100;
         public const int PasswordMinLength = 8;
         public const int FirstNameMaxLength = 100;
         public const int LastNameMaxLength = 100;

@@ -144,4 +144,36 @@ public class IdentityService(
             user.PhoneNumber, roles.FirstOrDefault() ?? HotelBookingConstants.Roles.User,
             user.CreatedAtUtc, user.UpdatedAtUtc);
     }
+
+    public async Task<Result<Success>> ChangePasswordAsync(
+        string userId,
+        string currentPassword,
+        string newPassword,
+        CancellationToken ct = default)
+    {
+        var user = await userManager.FindByIdAsync(userId.ToString());
+        if (user is null)
+            return ApplicationErrors.Auth.UserNotFound;
+
+        user.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        var changeResult = await userManager.ChangePasswordAsync(
+            user,
+            currentPassword,
+            newPassword);
+
+        if (!changeResult.Succeeded)
+        {
+            if (changeResult.Errors.Any(e =>
+                string.Equals(e.Code, "PasswordMismatch", StringComparison.OrdinalIgnoreCase)))
+            {
+                return ApplicationErrors.Auth.InvalidCurrentPassword;
+            }
+
+            var errors = string.Join(", ", changeResult.Errors.Select(e => e.Description));
+            return ApplicationErrors.Auth.PasswordChangeFailed(errors);
+        }
+
+        return Result.Success;
+    }
 }

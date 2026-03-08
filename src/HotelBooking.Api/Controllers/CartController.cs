@@ -7,12 +7,14 @@ using HotelBooking.Contracts.Cart;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using System.Security.Claims;
 
 
 namespace HotelBooking.Api.Controllers;
 
 [Authorize]
+[EnableRateLimiting("user-read")]
 public sealed class CartController(ISender sender) : ApiController
 {
 
@@ -29,6 +31,7 @@ public sealed class CartController(ISender sender) : ApiController
     }
 
     /// <summary>Add a room type to the cart.</summary>
+    [EnableRateLimiting("user-write")]
     [HttpPost("items")]
     [ProducesResponseType(typeof(CartItemDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
@@ -43,7 +46,9 @@ public sealed class CartController(ISender sender) : ApiController
             request.HotelRoomTypeId,
             request.CheckIn,
             request.CheckOut,
-            request.Quantity), ct);
+            request.Quantity,
+            request.Adults,
+            request.Children), ct);
 
         return result.Match(
             item => CreatedAtAction(nameof(GetCart), item),
@@ -51,6 +56,7 @@ public sealed class CartController(ISender sender) : ApiController
     }
 
     /// <summary>Update quantity for a specific cart item.</summary>
+    [EnableRateLimiting("user-write")]
     [HttpPut("items/{itemId:guid}")]
     [ProducesResponseType(typeof(CartItemDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -69,6 +75,7 @@ public sealed class CartController(ISender sender) : ApiController
     }
 
     /// <summary>Remove a specific item from the cart.</summary>
+    [EnableRateLimiting("user-write")]
     [HttpDelete("items/{itemId:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -85,6 +92,7 @@ public sealed class CartController(ISender sender) : ApiController
     }
 
     /// <summary>Clear all items from the cart.</summary>
+    [EnableRateLimiting("user-write")]
     [HttpDelete]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> ClearCart(CancellationToken ct)

@@ -39,18 +39,22 @@ public static class AdminErrors
     public static class Rooms
     {
         public static Error NotFound(Guid id) =>
-            Error.NotFound("Admin.Rooms.NotFound", $"Room type assignment {id} was not found.");
+            Error.NotFound("Admin.Rooms.NotFound", $"Room {id} was not found.");
 
-        public static Error ReferencedRoomTypeNotFound(Guid id) =>
-            Error.NotFound("Admin.Rooms.RoomTypeNotFound", $"Room type {id} was not found.");
+        public static Error ReferencedHotelRoomTypeNotFound(Guid id) =>
+            Error.NotFound("Admin.Rooms.HotelRoomTypeNotFound", $"Hotel room type {id} was not found.");
 
-        public static readonly Error AlreadyExists =
-            Error.Conflict("Admin.Rooms.AlreadyExists",
-                "This room type is already assigned to the selected hotel.");
+        public static readonly Error DuplicateRoomNumber =
+            Error.Conflict("Admin.Rooms.DuplicateRoomNumber",
+                "A room with the same number already exists in this hotel.");
+
+        public static readonly Error InvalidStatus =
+            Error.Validation("Admin.Rooms.InvalidStatus",
+                "Invalid room status.");
 
         public static readonly Error HasActiveBookings =
             Error.Conflict("Admin.Rooms.HasActiveBookings",
-                "Cannot delete a room type assignment that has confirmed bookings.");
+                "Cannot delete a room that has confirmed bookings.");
     }
     public static class RoomTypes
     {
@@ -78,4 +82,29 @@ public static class AdminErrors
             Error.Conflict("Admin.Services.HasRelatedHotelAssignments",
                 "Cannot delete a service that is assigned to one or more hotel room types.");
     }
+
+    public static class HotelRoomTypes
+    {
+        public static readonly Error AlreadyExists =
+            Error.Conflict("Admin.HotelRoomTypes.AlreadyExists", "Hotel room type already exists for this hotel and room type.");
+
+        public static Error NotFound(Guid id) =>
+            Error.NotFound("Admin.HotelRoomTypes.NotFound", $"Hotel room type '{id}' was not found.");
+        
+        public static readonly Error HasPendingBookings =
+        Error.Conflict(
+            "Admin.HotelRoomTypes.HasPendingBookings",
+            "Hotel room type cannot be deleted while it has pending bookings.");
+
+        public static readonly Error HasActiveHolds =
+            Error.Conflict(
+                "Admin.HotelRoomTypes.HasActiveHolds",
+                "Hotel room type cannot be deleted while it has active checkout holds.");
+
+        public static readonly Error HasAssignedRooms =
+            Error.Conflict(
+                "Admin.HotelRoomTypes.HasAssignedRooms",
+                 "Hotel room type cannot be deleted while it still has assigned rooms.");
+    }
+
 }

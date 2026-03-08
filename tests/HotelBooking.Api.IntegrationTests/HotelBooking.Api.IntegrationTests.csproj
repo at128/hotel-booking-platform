@@ -1,27 +1,36 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
-
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <IsPackable>false</IsPackable>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="coverlet.collector" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="coverlet.collector">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="coverlet.msbuild" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="Testcontainers.MsSql" />
+    <PackageReference Include="NSubstitute" />
+    <PackageReference Include="FluentAssertions" />
     <PackageReference Include="xunit" />
-    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="xunit.runner.visualstudio"  />
+    <PackageReference Include="Microsoft.NET.Test.Sdk"  />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\HotelBooking.Api\HotelBooking.Api.csproj" />
-    <ProjectReference Include="..\HotelBooking.Tests.Common\HotelBooking.Tests.Common.csproj" />
+    <ProjectReference Include="..\..\src\HotelBooking.Application\HotelBooking.Application.csproj" />
+    <ProjectReference Include="..\..\src\HotelBooking.Domain\HotelBooking.Domain.csproj" />
+    <ProjectReference Include="..\..\src\HotelBooking.Infrastructure\HotelBooking.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\HotelBooking.Contracts\HotelBooking.Contracts.csproj" />
   </ItemGroup>
-
-  <ItemGroup>
-    <Using Include="Xunit" />
-  </ItemGroup>
-
 </Project>
-

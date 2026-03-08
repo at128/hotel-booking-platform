@@ -4,13 +4,16 @@ using HotelBooking.Application.Features.Admin.Cities.Command.UpdateCity;
 using HotelBooking.Application.Features.Admin.Cities.Queries.GetCities;
 using HotelBooking.Application.Features.Admin.Cities.Query.GetCityById;
 using HotelBooking.Contracts.Admin;
+using HotelBooking.Domain.Common.Constants;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace HotelBooking.Api.Controllers;
 
-[Authorize(Roles = "Admin")]
+[Authorize(Roles = HotelBookingConstants.Roles.Admin)]
+[EnableRateLimiting("admin")]
 public sealed class AdminCitiesController(ISender sender) : ApiController
 {
     [HttpGet]

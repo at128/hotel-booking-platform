@@ -1,9 +1,11 @@
 ﻿using HotelBooking.Application.Common.Interfaces;
 using HotelBooking.Application.Settings;
 using HotelBooking.Infrastructure.BackgroundJobs;
+using HotelBooking.Infrastructure.Caching;
 using HotelBooking.Infrastructure.Data;
 using HotelBooking.Infrastructure.Data.Interceptors;
 using HotelBooking.Infrastructure.Data.Repositories;
+using HotelBooking.Infrastructure.Elasticsearch;
 using HotelBooking.Infrastructure.Email;
 using HotelBooking.Infrastructure.Identity;
 using HotelBooking.Infrastructure.Payment;
@@ -14,6 +16,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Stripe;
 using System.Text;
@@ -34,6 +37,7 @@ public static class DependencyInjection
         services.Configure<JwtSettings>(jwtSection);
 
         services.AddBookingSettingsOptions(configuration);
+        services.AddAdminBootstrap(configuration);
         services.AddPersistence(configuration);
         services.AddIdentityServices();
         services.AddJwtAuthentication(jwtSection, jwtSecret);
@@ -44,6 +48,7 @@ public static class DependencyInjection
         services.AddScoped<IIdentityService, IdentityService>();
 
         services.AddHybridCache();
+        services.AddScoped<ICacheInvalidator, CacheInvalidator>();
 
         services.AddRefreshToken(configuration);
 
@@ -51,7 +56,7 @@ public static class DependencyInjection
         services.AddStripePayment(configuration);
 
         services.AddEmail(configuration);
-
+        services.AddElasticsearch(configuration);
         return services;
     }
 
@@ -106,7 +111,7 @@ public static class DependencyInjection
                 sql =>
                 {
                     sql.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName);
-                    sql.EnableRetryOnFailure(3);
+                    //sql.EnableRetryOnFailure(3);
                 });
         });
 
@@ -134,6 +139,28 @@ public static class DependencyInjection
         .AddRoles<IdentityRole<Guid>>()
         .AddEntityFrameworkStores<AppDbContext>()
         .AddDefaultTokenProviders();
+
+        services.AddHostedService<AdminBootstrapService>();
+
+        return services;
+    }
+
+    private static IServiceCollection AddAdminBootstrap(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        services.AddOptions<AdminBootstrapSettings>()
+            .Bind(configuration.GetSection(AdminBootstrapSettings.SectionName))
+            .Validate(
+                s => !s.Enabled || !string.IsNullOrWhiteSpace(s.Email),
+                $"{AdminBootstrapSettings.SectionName}:Email is required when Enabled=true.")
+            .Validate(
+                s => !s.Enabled || !string.IsNullOrWhiteSpace(s.Password),
+                $"{AdminBootstrapSettings.SectionName}:Password is required when Enabled=true.")
+            .Validate(
+                s => !s.Enabled || s.Password.Length >= 8,
+                $"{AdminBootstrapSettings.SectionName}:Password must be at least 8 characters when Enabled=true.")
+            .ValidateOnStart();
 
         return services;
     }
@@ -193,14 +220,10 @@ public static class DependencyInjection
                 "Stripe:WebhookSecret is required.")
             .ValidateOnStart();
 
+        services.AddSingleton<IValidateOptions<PaymentUrlSettings>, PaymentUrlSettingsValidator>();
+
         services.AddOptions<PaymentUrlSettings>()
             .Bind(configuration.GetSection(PaymentUrlSettings.SectionName))
-            .Validate(
-                s => !string.IsNullOrWhiteSpace(s.SuccessUrlTemplate),
-                "PaymentUrls:SuccessUrlTemplate is required.")
-            .Validate(
-                s => !string.IsNullOrWhiteSpace(s.CancelUrlTemplate),
-                "PaymentUrls:CancelUrlTemplate is required.")
             .ValidateOnStart();
 
         var stripeKey = configuration[$"{StripeSettings.SectionName}:SecretKey"];
@@ -217,11 +240,19 @@ public static class DependencyInjection
         IConfiguration configuration)
     {
         services.AddOptions<EmailSettings>()
-                .BindConfiguration(EmailSettings.SectionName)
-                .ValidateDataAnnotations()
-                .ValidateOnStart();
+        .BindConfiguration(EmailSettings.SectionName)
+        .ValidateDataAnnotations()
+        .Validate(s => !string.IsNullOrWhiteSpace(s.SmtpHost),
+            "Email:SmtpHost is required.")
+        .Validate(s => !string.IsNullOrWhiteSpace(s.SmtpUser),
+            "Email:SmtpUser is required.")
+        .Validate(s => !string.IsNullOrWhiteSpace(s.SmtpPassword),
+            "Email:SmtpPassword is required.")
+        .Validate(s => !string.IsNullOrWhiteSpace(s.FromAddress),
+            "Email:FromAddress is required.")
+        .ValidateOnStart();
 
-        services.AddScoped<IEmailService, SmtpEmailService>(); services.AddScoped<IEmailService, SmtpEmailService>();
+        services.AddScoped<IEmailService, SmtpEmailService>();
         return services;
     }
 }

@@ -1,7 +1,9 @@
 ﻿namespace HotelBooking.Contracts.Search;
 
 public sealed record SearchHotelsRequest(
+    string? Query,
     string? City,
+    Guid? RoomTypeId,
     DateOnly? CheckIn,
     DateOnly? CheckOut,
     int? Adults,
@@ -9,9 +11,8 @@ public sealed record SearchHotelsRequest(
     int? NumberOfRooms,
     decimal? MinPrice,
     decimal? MaxPrice,
-    int? MinStarRating,
-    List<string>? Amenities,
+    short? MinStarRating,
+    IReadOnlyCollection<string>? Amenities,
     string? SortBy,
     string? Cursor,
-    int? Limit
-);
+    int Limit = 20);

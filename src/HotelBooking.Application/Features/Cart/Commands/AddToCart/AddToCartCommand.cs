@@ -9,4 +9,6 @@ public sealed record AddToCartCommand(
     Guid HotelRoomTypeId,
     DateOnly CheckIn,
     DateOnly CheckOut,
-    int Quantity) : IRequest<Result<CartItemDto>>;
+    int Quantity,
+    int Adults,
+    int Children) : IRequest<Result<CartItemDto>>;

@@ -21,10 +21,12 @@ public sealed record BookingConfirmationEmailData(
     DateOnly CheckOut,
     int Nights,
     decimal TotalAmount,
+    string Currency,
     string TransactionRef,
     List<BookingRoomEmailItem> Rooms);
 
 public sealed record BookingRoomEmailItem(
     string RoomTypeName,
     string RoomNumber,
-    decimal PricePerNight);
+    decimal PricePerNight,
+    string Currency);
