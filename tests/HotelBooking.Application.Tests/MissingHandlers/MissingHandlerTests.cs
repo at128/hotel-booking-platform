@@ -210,6 +210,8 @@ public sealed class GetRoomAvailabilityQueryHandlerTests
             new List<Hotel> { hotel }.AsQueryable().BuildMockDbSet().Object);
         _db.Setup(x => x.HotelRoomTypes).Returns(
             new List<HotelRoomType>().AsQueryable().BuildMockDbSet().Object);
+        _db.Setup(x => x.Images).Returns(
+            new List<Image>().AsQueryable().BuildMockDbSet().Object);
         _db.Setup(x => x.Bookings).Returns(
             new List<Booking>().AsQueryable().BuildMockDbSet().Object);
         _db.Setup(x => x.CheckoutHolds).Returns(
@@ -392,6 +394,10 @@ public sealed class DeleteHotelCommandHandlerTests
             new List<Hotel> { hotel }.AsQueryable().BuildMockDbSet().Object);
         _db.Setup(x => x.Bookings).Returns(
             new List<Booking>().AsQueryable().BuildMockDbSet().Object);
+        _db.Setup(x => x.HotelRoomTypes).Returns(
+            new List<HotelRoomType>().AsQueryable().BuildMockDbSet().Object);
+        _db.Setup(x => x.Rooms).Returns(
+            new List<Room>().AsQueryable().BuildMockDbSet().Object);
         _db.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
         var sut = new DeleteHotelCommandHandler(_db.Object);
