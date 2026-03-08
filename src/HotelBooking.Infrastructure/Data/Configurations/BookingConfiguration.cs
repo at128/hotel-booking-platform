@@ -50,6 +50,11 @@ public sealed class BookingConfiguration : IEntityTypeConfiguration<Domain.Booki
 
         builder.Property(b => b.Notes)
             .HasMaxLength(1000);
+        builder.HasIndex(b => b.UserId);
+        builder.HasIndex(b => b.HotelId);
+        builder.HasIndex(b => new { b.CheckIn, b.CheckOut });
+        builder.HasIndex(b => b.Status);
+
 
         builder.HasOne(b => b.Hotel)
             .WithMany()

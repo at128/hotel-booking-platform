@@ -48,6 +48,11 @@ namespace HotelBooking.Infrastructure.Data.Configurations
             builder.Property(h => h.ThumbnailUrl)
                 .HasMaxLength(500);
 
+            builder.HasIndex(h => h.CityId);
+            builder.HasIndex(h => h.StarRating);
+            builder.HasIndex(h => h.MinPricePerNight);
+            builder.HasIndex(h => h.DeletedAtUtc);
+
             builder.HasOne(h => h.City)
                 .WithMany(c => c.Hotels)
                 .HasForeignKey(h => h.CityId)

@@ -17,6 +17,9 @@ namespace HotelBooking.Infrastructure.Data.Configurations
 
             builder.HasKey(hv => hv.Id);
 
+            builder.HasIndex(v => v.UserId);
+            builder.HasIndex(v => new { v.HotelId, v.VisitedAtUtc });
+
             builder.HasOne(hv => hv.Hotel)
                 .WithMany()
                 .HasForeignKey(hv => hv.HotelId)
