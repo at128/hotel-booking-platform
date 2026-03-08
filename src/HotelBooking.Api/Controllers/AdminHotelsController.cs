@@ -4,6 +4,9 @@ using HotelBooking.Application.Features.Admin.Hotels.Command.CreateHotel;
 using HotelBooking.Application.Features.Admin.Hotels.Command.DeleteHotel;
 using HotelBooking.Application.Features.Admin.Hotels.Command.UpdateHotel;
 using HotelBooking.Application.Features.Admin.Hotels.Commands.AddHotelImage;
+using HotelBooking.Application.Features.Admin.Hotels.Commands.DeleteHotelImage;
+using HotelBooking.Application.Features.Admin.Hotels.Commands.SetHotelThumbnail;
+using HotelBooking.Application.Features.Admin.Hotels.Commands.UpdateHotelImage;
 using HotelBooking.Application.Features.Admin.Hotels.Query.GetHotelById;
 using HotelBooking.Application.Features.Admin.Hotels.Query.GetHotels;
 using HotelBooking.Contracts.Admin;
@@ -13,6 +16,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using ImageDto = HotelBooking.Contracts.Admin.ImageDto;
 
 namespace HotelBooking.Api.Controllers;
 
@@ -170,5 +174,30 @@ public sealed class AdminHotelsController(ISender sender, IHotelImageUploadProce
 
             throw;
         }
+    }
+
+    [HttpDelete("{hotelId:guid}/images/{imageId:guid}")]
+    public async Task<IActionResult> DeleteImage(Guid hotelId, Guid imageId, CancellationToken ct)
+    {
+        var result = await sender.Send(new DeleteHotelImageCommand(hotelId, imageId), ct);
+        return result.Match(_ => NoContent(), Problem);
+    }
+
+    [HttpPut("{hotelId:guid}/images/{imageId:guid}")]
+    public async Task<IActionResult> UpdateImage(
+        Guid hotelId, Guid imageId,
+        [FromBody] UpdateImageRequest request, CancellationToken ct)
+    {
+        var result = await sender.Send(new UpdateHotelImageCommand(
+            hotelId, imageId, request.Caption, request.SortOrder), ct);
+        return result.Match(Ok, Problem);
+    }
+
+    [HttpPatch("{hotelId:guid}/images/{imageId:guid}/set-thumbnail")]
+    public async Task<IActionResult> SetThumbnail(
+        Guid hotelId, Guid imageId, CancellationToken ct)
+    {
+        var result = await sender.Send(new SetHotelThumbnailCommand(hotelId, imageId), ct);
+        return result.Match(_ => NoContent(), Problem);
     }
 }
