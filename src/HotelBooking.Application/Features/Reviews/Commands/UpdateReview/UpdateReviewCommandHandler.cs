@@ -19,6 +19,9 @@ public sealed class UpdateReviewCommandHandler(IAppDbContext db)
         if (review is null)
             return Error.NotFound("Review.NotFound", "Review not found.");
 
+        if (review.HotelId != cmd.HotelId)
+            return Error.NotFound("Review.NotFound", "Review not found.");
+
         if (review.UserId != cmd.UserId)
             return Error.Forbidden("Review.Forbidden", "You can only edit your own reviews.");
 

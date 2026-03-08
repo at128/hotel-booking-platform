@@ -112,7 +112,7 @@ public sealed class HotelsController(ISender sender) : ApiController
             return Unauthorized();
 
         var result = await sender.Send(new UpdateReviewCommand(
-            reviewId, userId, request.Rating, request.Title, request.Comment), ct);
+            hotelId, reviewId, userId, request.Rating, request.Title, request.Comment), ct);
 
         return result.Match(Ok, Problem);
     }
@@ -129,7 +129,7 @@ public sealed class HotelsController(ISender sender) : ApiController
 
         var isAdmin = User.IsInRole(HotelBookingConstants.Roles.Admin);
         var result = await sender.Send(
-            new DeleteReviewCommand(reviewId, userId, isAdmin), ct);
+            new DeleteReviewCommand(hotelId, reviewId, userId, isAdmin), ct);
 
         return result.Match(_ => NoContent(), Problem);
     }

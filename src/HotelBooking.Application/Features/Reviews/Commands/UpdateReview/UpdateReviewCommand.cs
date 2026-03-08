@@ -5,6 +5,7 @@ using MediatR;
 namespace HotelBooking.Application.Features.Reviews.Commands.UpdateReview;
 
 public sealed record UpdateReviewCommand(
+    Guid HotelId,
     Guid ReviewId,
     Guid UserId,
     short Rating,

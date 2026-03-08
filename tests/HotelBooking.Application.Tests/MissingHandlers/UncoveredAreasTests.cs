@@ -341,12 +341,12 @@ public sealed class ReviewCommandMissingTests
         _db.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
         var update = new UpdateReviewCommandHandler(_db.Object);
-        var updateResult = await update.Handle(new UpdateReviewCommand(review.Id, userId, 5, "new", "updated"), default);
+        var updateResult = await update.Handle(new UpdateReviewCommand(review.HotelId, review.Id, userId, 5, "new", "updated"), default);
         updateResult.IsError.Should().BeFalse();
         updateResult.Value.Rating.Should().Be(5);
 
         var delete = new DeleteReviewCommandHandler(_db.Object);
-        var deleteResult = await delete.Handle(new DeleteReviewCommand(review.Id, Guid.NewGuid(), true), default);
+        var deleteResult = await delete.Handle(new DeleteReviewCommand(review.HotelId, review.Id, Guid.NewGuid(), true), default);
         deleteResult.IsError.Should().BeFalse();
         review.DeletedAtUtc.Should().NotBeNull();
     }

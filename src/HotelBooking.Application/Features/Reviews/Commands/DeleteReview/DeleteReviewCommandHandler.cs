@@ -18,6 +18,9 @@ public sealed class DeleteReviewCommandHandler(IAppDbContext db)
         if (review is null)
             return Error.NotFound("Review.NotFound", "Review not found.");
 
+        if (review.HotelId != cmd.HotelId)
+            return Error.NotFound("Review.NotFound", "Review not found.");
+
         if (!cmd.IsAdmin && review.UserId != cmd.UserId)
             return Error.Forbidden("Review.Forbidden", "You can only delete your own reviews.");
 
