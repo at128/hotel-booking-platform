@@ -249,8 +249,8 @@ public static class DependencyInjection
     {
         app.UseHttpsRedirection();
         app.UseCors(FrontendCorsPolicy);
-        app.UseRateLimiter();
         app.UseAuthentication();
+        //app.UseRateLimiter();
         app.UseAuthorization();
 
         return app;

@@ -4,6 +4,7 @@ using HotelBooking.Infrastructure.BackgroundJobs;
 using HotelBooking.Infrastructure.Data;
 using HotelBooking.Infrastructure.Data.Interceptors;
 using HotelBooking.Infrastructure.Data.Repositories;
+using HotelBooking.Infrastructure.Elasticsearch;
 using HotelBooking.Infrastructure.Email;
 using HotelBooking.Infrastructure.Identity;
 using HotelBooking.Infrastructure.Payment;
@@ -51,7 +52,7 @@ public static class DependencyInjection
         services.AddStripePayment(configuration);
 
         services.AddEmail(configuration);
-
+        services.AddElasticsearch(configuration);
         return services;
     }
 
@@ -106,7 +107,7 @@ public static class DependencyInjection
                 sql =>
                 {
                     sql.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName);
-                    sql.EnableRetryOnFailure(3);
+                    //sql.EnableRetryOnFailure(3);
                 });
         });
 

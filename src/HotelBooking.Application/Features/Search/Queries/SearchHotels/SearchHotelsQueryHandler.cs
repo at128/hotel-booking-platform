@@ -6,10 +6,14 @@ using HotelBooking.Domain.Bookings.Enums;
 using HotelBooking.Domain.Common.Results;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace HotelBooking.Application.Features.Search.Queries.SearchHotels;
 
-public sealed class SearchHotelsQueryHandler(IAppDbContext context)
+public sealed class SearchHotelsQueryHandler(
+    IAppDbContext context,
+    IHotelSearchService searchService,
+    ILogger<SearchHotelsQueryHandler> logger)
     : IRequestHandler<SearchHotelsQuery, Result<SearchHotelsResponse>>
 {
     private const int DefaultAdults = 2;
@@ -29,6 +33,71 @@ public sealed class SearchHotelsQueryHandler(IAppDbContext context)
     }
 
     public async Task<Result<SearchHotelsResponse>> Handle(SearchHotelsQuery q, CancellationToken ct)
+    {
+        // ── Try Elasticsearch first ──
+        if (await TryElasticsearchAsync(q, ct) is { } esResult)
+        {
+            return esResult;
+        }
+
+        // ── Fallback to SQL Server ──
+        logger.LogWarning("Elasticsearch unavailable, falling back to SQL Server query");
+        return await ExecuteSqlFallbackAsync(q, ct);
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // Elasticsearch path
+    // ─────────────────────────────────────────────────────────────────
+
+    private async Task<Result<SearchHotelsResponse>?> TryElasticsearchAsync(
+        SearchHotelsQuery q, CancellationToken ct)
+    {
+        try
+        {
+            if (!await searchService.IsAvailableAsync(ct))
+                return null;
+
+            var request = new HotelSearchRequest(
+                Query: q.Query,
+                City: q.City,
+                RoomTypeId: q.RoomTypeId,
+                CheckIn: q.CheckIn,
+                CheckOut: q.CheckOut,
+                Adults: q.Adults,
+                Children: q.Children,
+                NumberOfRooms: q.NumberOfRooms,
+                MinPrice: q.MinPrice,
+                MaxPrice: q.MaxPrice,
+                MinStarRating: q.MinStarRating,
+                Amenities: q.Amenities,
+                SortBy: q.SortBy,
+                Cursor: q.Cursor,
+                Limit: q.Limit);
+
+            var result = await searchService.SearchAsync(request, ct);
+
+            // If ES returned a failure, fall back to SQL
+            if (!result.IsSuccess)
+            {
+                logger.LogWarning("Elasticsearch search failed, falling back to SQL Server");
+                return null;
+            }
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Elasticsearch call threw exception, falling back to SQL Server");
+            return null;
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // SQL Server fallback (original implementation preserved)
+    // ─────────────────────────────────────────────────────────────────
+
+    private async Task<Result<SearchHotelsResponse>> ExecuteSqlFallbackAsync(
+        SearchHotelsQuery q, CancellationToken ct)
     {
         var effectiveCheckIn = q.CheckIn ?? DateOnly.FromDateTime(DateTime.UtcNow.Date);
         var effectiveCheckOut = q.CheckOut ?? effectiveCheckIn.AddDays(1);
@@ -90,6 +159,8 @@ public sealed class SearchHotelsQueryHandler(IAppDbContext context)
         }
 
         return new SearchHotelsResponse(items, nextCursor, hasMore, limit);
+
+        // ── Local functions (same as original) ──
 
         void ApplyTextSearchFilter()
         {

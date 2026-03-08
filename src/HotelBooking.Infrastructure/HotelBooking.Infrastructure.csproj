@@ -28,7 +28,11 @@
 		<PackageReference Include="Serilog.AspNetCore" />
 		<PackageReference Include="Serilog.Sinks.Seq" />
 		<PackageReference Include="System.IdentityModel.Tokens.Jwt" />
-
+		<PackageReference Include="Elastic.Clients.Elasticsearch" />
 		<PackageReference Include="Stripe.net" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Folder Include="Elasticsearch\" />
 	</ItemGroup>
 </Project>
