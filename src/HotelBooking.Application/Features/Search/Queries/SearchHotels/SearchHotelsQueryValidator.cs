@@ -13,6 +13,14 @@ public sealed class SearchHotelsQueryValidator : AbstractValidator<SearchHotelsQ
 
     public SearchHotelsQueryValidator()
     {
+        RuleFor(x => x.Query)
+            .MaximumLength(100)
+            .When(x => !string.IsNullOrWhiteSpace(x.Query));
+
+        RuleFor(x => x.City)
+            .MaximumLength(80)
+            .When(x => !string.IsNullOrWhiteSpace(x.City));
+
         RuleFor(x => x.CheckOut)
             .NotNull()
             .When(x => x.CheckIn.HasValue)
@@ -42,7 +50,16 @@ public sealed class SearchHotelsQueryValidator : AbstractValidator<SearchHotelsQ
             .When(x => x.Children.HasValue);
 
         RuleFor(x => x.NumberOfRooms)
-            .GreaterThan(0).When(x => x.NumberOfRooms.HasValue);
+            .InclusiveBetween(1, 20)
+            .When(x => x.NumberOfRooms.HasValue);
+
+        RuleFor(x => x.MinPrice)
+            .GreaterThanOrEqualTo(0m)
+            .When(x => x.MinPrice.HasValue);
+
+        RuleFor(x => x.MaxPrice)
+            .GreaterThanOrEqualTo(0m)
+            .When(x => x.MaxPrice.HasValue);
 
         RuleFor(x => x.MinStarRating)
             .InclusiveBetween((short)1, (short)5)
@@ -56,6 +73,18 @@ public sealed class SearchHotelsQueryValidator : AbstractValidator<SearchHotelsQ
             .Must(s => AllowedSortBy.Contains(s!.Trim().ToLowerInvariant()))
             .When(x => !string.IsNullOrWhiteSpace(x.SortBy))
             .WithMessage("Invalid sort field.");
+
+        RuleFor(x => x.Amenities)
+            .Must(a => a is null || a.Count <= 20)
+            .WithMessage("Amenities filter supports up to 20 values.");
+
+        RuleForEach(x => x.Amenities)
+            .Must(a => string.IsNullOrWhiteSpace(a) || a.Trim().Length <= 50)
+            .WithMessage("Each amenity must be at most 50 characters.");
+
+        RuleFor(x => x.Cursor)
+            .MaximumLength(1024)
+            .When(x => !string.IsNullOrWhiteSpace(x.Cursor));
 
         RuleFor(x => x.Limit)
             .InclusiveBetween(1, 50);
