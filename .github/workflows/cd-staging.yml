@@ -1,10 +1,6 @@
 name: CD - Staging
 
 on:
-  workflow_run:
-    workflows: ["CI"] # لازم يطابق name في ci.yml
-    types: [completed]
-    branches: [dev]
   workflow_dispatch:
     inputs:
       ref:
@@ -34,6 +30,7 @@ env:
 
 jobs:
   prepare:
+    if: ${{ vars.ENABLE_CD == 'true' }}
     runs-on: ubuntu-latest
     outputs:
       should_deploy: ${{ steps.out.outputs.should_deploy }}
@@ -44,20 +41,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
-          if [ "${{ github.event_name }}" = "workflow_run" ]; then
-            if [ "${{ github.event.workflow_run.conclusion }}" != "success" ]; then
-              echo "should_deploy=false" >> "$GITHUB_OUTPUT"
-              echo "checkout_ref=" >> "$GITHUB_OUTPUT"
-              echo "apply_migrations=false" >> "$GITHUB_OUTPUT"
-              exit 0
-            fi
-
-            echo "should_deploy=true" >> "$GITHUB_OUTPUT"
-            echo "checkout_ref=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
-            echo "apply_migrations=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
 
           # workflow_dispatch
           echo "should_deploy=true" >> "$GITHUB_OUTPUT"

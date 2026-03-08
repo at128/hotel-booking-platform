@@ -17,7 +17,7 @@ A backend API for hotel booking built with **ASP.NET Core 8**, following **Clean
 | **Caching** | HybridCache with tag-based invalidation |
 | **Logging** | Serilog + Seq |
 | **Testing** | xUnit, FluentAssertions, NSubstitute |
-| **DevOps** | Docker Compose, GitHub Actions CI/CD |
+| **DevOps** | Docker Compose, GitHub Actions CI (CD templates disabled by default) |
 
 ---
 
@@ -114,6 +114,10 @@ The API uses a **Result pattern** instead of throwing exceptions for expected er
 ### Monitoring Runbook
 Operational alerts and monitoring playbook are documented in `docs/monitoring-alerts-runbook.md`.
 
+### CD Status
+`CI` is active. `CD` workflows are intentionally disabled by default.
+To enable manual CD, set repository variable `ENABLE_CD=true`.
+
 ---
 
 ## Getting Started
@@ -193,7 +197,8 @@ Do not keep real secrets in `appsettings*.json` or source control. Provide them 
 - [x] Checkout Holds (atomic room reservation)
 - [x] Recently Visited Hotels tracking
 - [x] Docker Compose setup
-- [x] CI/CD Pipeline (GitHub Actions)
+- [x] CI Pipeline (GitHub Actions)
+- [ ] CD Pipelines enabled (optional template; disabled by default)
 - [x] Unit Tests (auth flows, validators)
 - [ ] Booking confirmation and payment processing
 - [ ] Admin management panel
