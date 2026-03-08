@@ -719,6 +719,68 @@ public sealed class ExpirePendingPaymentsCommandHandlerTests
         await Sut().Handle(new ExpirePendingPaymentsCommand(100), default);
         p.Status.Should().Be(PaymentStatus.Succeeded);
     }
+
+    [Fact]
+    public async Task Handle_BatchConcurrency_FallsBackToPerItem()
+    {
+        var b = TestHelpers.CreateBooking();
+        var p = TestHelpers.CreatePayment(bookingId: b.Id, amount: 100m);
+        TestHelpers.SetNav(p, "Booking", b);
+        TestHelpers.SetPrivateProp(p, "CreatedAtUtc", DateTimeOffset.UtcNow.AddMinutes(-40));
+
+        _db.Setup(x => x.Payments).Returns(
+            new List<Payment> { p }.AsQueryable().BuildMockDbSet().Object);
+
+        _db.SetupSequence(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
+           .ThrowsAsync(new DbUpdateConcurrencyException("race"))
+           .ReturnsAsync(1);
+
+        var result = await Sut().Handle(new ExpirePendingPaymentsCommand(100), default);
+
+        result.IsError.Should().BeFalse();
+        p.Status.Should().Be(PaymentStatus.Failed);
+        b.Status.Should().Be(BookingStatus.Failed);
+        _db.Verify(x => x.ClearChangeTracker(), Times.AtLeastOnce);
+    }
+
+    [Fact]
+    public async Task Handle_InvalidStateTransitionInBatch_RevertsTrackedEntities()
+    {
+        var b = TestHelpers.CreateBooking(status: BookingStatus.Confirmed);
+        var p = TestHelpers.CreatePayment(bookingId: b.Id, amount: 100m);
+        TestHelpers.SetNav(p, "Booking", b);
+        TestHelpers.SetPrivateProp(p, "CreatedAtUtc", DateTimeOffset.UtcNow.AddMinutes(-45));
+
+        _db.Setup(x => x.Payments).Returns(
+            new List<Payment> { p }.AsQueryable().BuildMockDbSet().Object);
+
+        var result = await Sut().Handle(new ExpirePendingPaymentsCommand(100), default);
+
+        result.IsError.Should().BeFalse();
+        _db.Verify(x => x.ReloadEntityAsync(p, It.IsAny<CancellationToken>()), Times.AtLeastOnce);
+        _db.Verify(x => x.ReloadEntityAsync(b, It.IsAny<CancellationToken>()), Times.AtLeastOnce);
+    }
+
+    [Fact]
+    public async Task Handle_BatchSkipsAll_RollsBackWithoutSave()
+    {
+        var id = Guid.NewGuid();
+        var pendingOld = TestHelpers.CreatePayment(id: id, bookingId: Guid.NewGuid(), amount: 100m);
+        TestHelpers.SetPrivateProp(pendingOld, "CreatedAtUtc", DateTimeOffset.UtcNow.AddMinutes(-40));
+
+        var booking = TestHelpers.CreateBooking(status: BookingStatus.Confirmed);
+        var nowSucceeded = TestHelpers.CreatePayment(id: id, bookingId: booking.Id, amount: 100m, status: PaymentStatus.Succeeded);
+        TestHelpers.SetNav(nowSucceeded, "Booking", booking);
+        TestHelpers.SetPrivateProp(nowSucceeded, "CreatedAtUtc", DateTimeOffset.UtcNow.AddMinutes(-40));
+
+        _db.SetupSequence(x => x.Payments)
+           .Returns(new List<Payment> { pendingOld }.AsQueryable().BuildMockDbSet().Object)
+           .Returns(new List<Payment> { nowSucceeded }.AsQueryable().BuildMockDbSet().Object);
+
+        await Sut().Handle(new ExpirePendingPaymentsCommand(100), default);
+
+        _db.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

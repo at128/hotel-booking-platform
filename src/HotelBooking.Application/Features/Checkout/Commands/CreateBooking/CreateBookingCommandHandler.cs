@@ -376,7 +376,8 @@ public sealed class CreateBookingCommandHandler(
     private static string GenerateBookingNumber()
     {
         var datePart = DateOnly.FromDateTime(DateTime.UtcNow).ToString("yyyyMMdd");
-        var randomPart = Guid.CreateVersion7().ToString("N")[..6].ToUpperInvariant();
+        // Use a random GUID segment (v4) to avoid collisions within the same millisecond.
+        var randomPart = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
         return $"BK-{datePart}-{randomPart}";
     }
 
