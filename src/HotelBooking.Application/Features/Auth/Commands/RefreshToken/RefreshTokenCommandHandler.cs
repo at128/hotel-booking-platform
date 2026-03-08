@@ -33,7 +33,10 @@ public sealed class RefreshTokenCommandHandler(
         var stored = await refreshTokenRepository.GetByHashAsync(tokenHash, ct);
 
         if (stored is null)
+        {
+            cookieService.RemoveRefreshTokenCookie();
             return ApplicationErrors.Auth.InvalidRefreshToken;
+        }
 
 
         if (stored.IsUsed)
@@ -51,7 +54,12 @@ public sealed class RefreshTokenCommandHandler(
 
         var userResult = await identityService.GetUserByIdAsync(stored.UserId, ct);
 
-        if (userResult.IsError) return userResult.TopError;
+        if (userResult.IsError)
+        {
+            await refreshTokenRepository.RevokeAllFamilyAsync(stored.Family, ct);
+            cookieService.RemoveRefreshTokenCookie();
+            return userResult.TopError;
+        }
 
         var user = userResult.Value;
 
