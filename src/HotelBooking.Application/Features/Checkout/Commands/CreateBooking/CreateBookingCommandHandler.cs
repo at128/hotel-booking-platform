@@ -121,11 +121,17 @@ public sealed class CreateBookingCommandHandler(
             created.BookingNumber, session.SessionId, paymentGateway.ProviderName);
 
         return new CreateBookingResponse(
-            BookingId: created.BookingId,
-            BookingNumber: created.BookingNumber,
-            TotalAmount: created.TotalAmount,
-            PaymentUrl: session.PaymentUrl,
-            ExpiresAtUtc: DateTimeOffset.UtcNow.AddMinutes(_booking.CheckoutHoldMinutes));
+    BookingId: created.BookingId,
+    BookingNumber: created.BookingNumber,
+    HotelName: created.HotelName,
+    HotelAddress: created.HotelAddress,
+    CheckIn: created.CheckIn,
+    CheckOut: created.CheckOut,
+    Nights: created.CheckOut.DayNumber - created.CheckIn.DayNumber,
+    Rooms: created.Rooms,
+    TotalAmount: created.TotalAmount,
+    PaymentUrl: session.PaymentUrl,
+    ExpiresAtUtc: DateTimeOffset.UtcNow.AddMinutes(_booking.CheckoutHoldMinutes));
     }
 
     private async Task<PhaseAResult> CreatePendingBookingAsync(
@@ -231,13 +237,20 @@ public sealed class CreateBookingCommandHandler(
             await tx.CommitAsync(ct);
 
             return PhaseAResult.Ok(new CreatedBookingSnapshot(
-                BookingId: bookingId,
-                PaymentId: payment.Id,
-                BookingNumber: bookingNumber,
-                HotelName: hotel.Name,
-                CheckIn: checkIn,
-                CheckOut: checkOut,
-                TotalAmount: total));
+                            BookingId: bookingId,
+                            PaymentId: payment.Id,
+                            BookingNumber: bookingNumber,
+                            HotelName: hotel.Name,
+                            HotelAddress: hotel.Address,
+                            CheckIn: checkIn,
+                            CheckOut: checkOut,
+                            TotalAmount: total,
+                            Rooms: bookingRooms
+                                .Select(br => new BookingRoomSummary(
+                                    br.RoomTypeName,
+                                    br.RoomNumber,
+                                    br.PricePerNight))
+                                .ToList()));
         }
         catch (OperationCanceledException)
         {
@@ -368,13 +381,15 @@ public sealed class CreateBookingCommandHandler(
     }
 
     private sealed record CreatedBookingSnapshot(
-        Guid BookingId,
-        Guid PaymentId,
-        string BookingNumber,
-        string HotelName,
-        DateOnly CheckIn,
-        DateOnly CheckOut,
-        decimal TotalAmount);
+    Guid BookingId,
+    Guid PaymentId,
+    string BookingNumber,
+    string HotelName,
+    string HotelAddress,
+    DateOnly CheckIn,
+    DateOnly CheckOut,
+    decimal TotalAmount,
+    List<BookingRoomSummary> Rooms);
 
     private sealed class PhaseAResult
     {
