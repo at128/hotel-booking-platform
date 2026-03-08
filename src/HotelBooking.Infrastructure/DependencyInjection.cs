@@ -36,6 +36,7 @@ public static class DependencyInjection
         services.Configure<JwtSettings>(jwtSection);
 
         services.AddBookingSettingsOptions(configuration);
+        services.AddAdminBootstrap(configuration);
         services.AddPersistence(configuration);
         services.AddIdentityServices();
         services.AddJwtAuthentication(jwtSection, jwtSecret);
@@ -137,6 +138,28 @@ public static class DependencyInjection
         .AddRoles<IdentityRole<Guid>>()
         .AddEntityFrameworkStores<AppDbContext>()
         .AddDefaultTokenProviders();
+
+        services.AddHostedService<AdminBootstrapService>();
+
+        return services;
+    }
+
+    private static IServiceCollection AddAdminBootstrap(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        services.AddOptions<AdminBootstrapSettings>()
+            .Bind(configuration.GetSection(AdminBootstrapSettings.SectionName))
+            .Validate(
+                s => !s.Enabled || !string.IsNullOrWhiteSpace(s.Email),
+                $"{AdminBootstrapSettings.SectionName}:Email is required when Enabled=true.")
+            .Validate(
+                s => !s.Enabled || !string.IsNullOrWhiteSpace(s.Password),
+                $"{AdminBootstrapSettings.SectionName}:Password is required when Enabled=true.")
+            .Validate(
+                s => !s.Enabled || s.Password.Length >= 8,
+                $"{AdminBootstrapSettings.SectionName}:Password must be at least 8 characters when Enabled=true.")
+            .ValidateOnStart();
 
         return services;
     }
