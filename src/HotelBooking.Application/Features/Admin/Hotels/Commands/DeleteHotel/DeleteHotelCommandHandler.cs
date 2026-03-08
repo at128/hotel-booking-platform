@@ -28,6 +28,21 @@ public sealed class DeleteHotelCommandHandler(IAppDbContext db)
             return AdminErrors.Hotels.HasActiveBookings;
 
         hotel.DeletedAtUtc = DateTimeOffset.UtcNow;
+
+        var hotelRoomTypes = await db.HotelRoomTypes
+                .Where(hrt => hrt.HotelId == cmd.Id && hrt.DeletedAtUtc == null)
+                .ToListAsync(ct);
+
+        foreach (var hrt in hotelRoomTypes)
+            hrt.DeletedAtUtc = DateTimeOffset.UtcNow;
+
+        var rooms = await db.Rooms
+            .Where(r => r.HotelId == cmd.Id && r.DeletedAtUtc == null)
+            .ToListAsync(ct);
+
+        foreach (var r in rooms)
+            r.DeletedAtUtc = DateTimeOffset.UtcNow;
+
         await db.SaveChangesAsync(ct);
 
         return Result.Deleted;
