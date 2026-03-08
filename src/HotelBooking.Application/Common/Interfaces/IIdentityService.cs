@@ -19,6 +19,12 @@ public interface IIdentityService
     Task<Result<UserProfileResult>> UpdateUserAsync(
         string userId, string firstName, string lastName,
         string? phoneNumber, CancellationToken ct = default);
+
+    Task<Result<Success>> ChangePasswordAsync(
+        string userId,
+        string currentPassword,
+        string newPassword,
+        CancellationToken ct = default);
 }
 
 

@@ -1,4 +1,5 @@
-﻿using Asp.Versioning;
+using Asp.Versioning;
+using HotelBooking.Application.Features.Auth.Commands.ChangePassword;
 using HotelBooking.Application.Features.Auth.Commands.Login;
 using HotelBooking.Application.Features.Auth.Commands.LogoutAllSessions;
 using HotelBooking.Application.Features.Auth.Commands.LogoutCurrentSession;
@@ -80,6 +81,31 @@ public sealed class AuthController(ISender sender) : ApiController
             userId, request.FirstName, request.LastName, request.PhoneNumber), ct);
 
         return result.Match(Ok, Problem);
+    }
+
+    /// <summary>Change the current user's password.</summary>
+    [Authorize]
+    [HttpPost("change-password")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> ChangePassword(
+        [FromBody] ChangePasswordRequest request,
+        CancellationToken ct)
+    {
+        var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+        if (!Guid.TryParse(userIdStr, out var userId))
+            return Unauthorized();
+
+        var result = await sender.Send(new ChangePasswordCommand(
+            userId.ToString(),
+            request.CurrentPassword,
+            request.NewPassword), ct);
+
+        return result.Match(
+            _ => NoContent(),
+            Problem);
     }
 
     [HttpPost("refresh")]

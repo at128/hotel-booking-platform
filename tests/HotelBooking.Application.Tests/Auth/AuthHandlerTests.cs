@@ -6,6 +6,7 @@ using FluentAssertions;
 using HotelBooking.Application.Common.Errors;
 using HotelBooking.Application.Common.Interfaces;
 using HotelBooking.Application.Common.Models;
+using HotelBooking.Application.Features.Auth.Commands.ChangePassword;
 using HotelBooking.Application.Features.Auth.Commands.Login;
 using HotelBooking.Application.Features.Auth.Commands.LogoutAllSessions;
 using HotelBooking.Application.Features.Auth.Commands.LogoutCurrentSession;
@@ -492,6 +493,50 @@ public class UpdateProfileCommandHandlerTests
 
         result.IsError.Should().BeTrue();
         result.TopError.Code.Should().Be(ApplicationErrors.Auth.UserNotFound.Code);
+    }
+}
+
+public class ChangePasswordCommandHandlerTests
+{
+    private readonly Mock<IIdentityService> _identity = new();
+
+    [Fact]
+    public async Task Handle_Success_ReturnsSuccess()
+    {
+        _identity.Setup(x => x.ChangePasswordAsync(
+                "user-id",
+                "OldP@ssw0rd1",
+                "NewP@ssw0rd2",
+                default))
+            .ReturnsAsync(Result.Success);
+
+        var handler = new ChangePasswordCommandHandler(_identity.Object);
+
+        var result = await handler.Handle(
+            new ChangePasswordCommand("user-id", "OldP@ssw0rd1", "NewP@ssw0rd2"),
+            default);
+
+        result.IsError.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Handle_InvalidCurrentPassword_ReturnsError()
+    {
+        _identity.Setup(x => x.ChangePasswordAsync(
+                "user-id",
+                "WrongP@ss1",
+                "NewP@ssw0rd2",
+                default))
+            .ReturnsAsync(ApplicationErrors.Auth.InvalidCurrentPassword);
+
+        var handler = new ChangePasswordCommandHandler(_identity.Object);
+
+        var result = await handler.Handle(
+            new ChangePasswordCommand("user-id", "WrongP@ss1", "NewP@ssw0rd2"),
+            default);
+
+        result.IsError.Should().BeTrue();
+        result.TopError.Code.Should().Be(ApplicationErrors.Auth.InvalidCurrentPassword.Code);
     }
 }
 

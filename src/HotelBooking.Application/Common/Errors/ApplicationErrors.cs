@@ -31,6 +31,12 @@ public static class ApplicationErrors
 
         public static readonly Error RefreshTokenReuse =
             Error.Failure("Auth.RefreshTokenReuse", "Refresh token reuse detected. Please login again.");
+
+        public static readonly Error InvalidCurrentPassword =
+            Error.Unauthorized("Auth.InvalidCurrentPassword", "Current password is incorrect.");
+
+        public static Error PasswordChangeFailed(string details) =>
+            Error.Validation("Auth.PasswordChangeFailed", $"Password change failed: {details}");
     }
     public static class Cart
     {

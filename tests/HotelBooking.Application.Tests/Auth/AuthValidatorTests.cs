@@ -2,6 +2,7 @@
 /// Tests for RegisterCommandValidator — all field constraints.
 /// </summary>
 using FluentValidation.TestHelper;
+using HotelBooking.Application.Features.Auth.Commands.ChangePassword;
 using HotelBooking.Application.Features.Auth.Commands.Register;
 using HotelBooking.Application.Features.Auth.Commands.Login;
 using HotelBooking.Application.Features.Auth.Commands.UpdateProfile;
@@ -208,5 +209,54 @@ public class UpdateProfileCommandValidatorTests
     {
         _validator.TestValidate(Valid() with { PhoneNumber = new string('5', 21) })
             .ShouldHaveValidationErrorFor(x => x.PhoneNumber);
+    }
+}
+
+public class ChangePasswordCommandValidatorTests
+{
+    private readonly ChangePasswordCommandValidator _validator = new();
+
+    private static ChangePasswordCommand Valid() =>
+        new("user-id", "OldP@ssw0rd1", "NewP@ssw0rd2");
+
+    [Fact]
+    public void Valid_NoErrors()
+    {
+        _validator.TestValidate(Valid()).ShouldNotHaveAnyValidationErrors();
+    }
+
+    [Fact]
+    public void UserId_Empty_Error()
+    {
+        _validator.TestValidate(Valid() with { UserId = "" })
+            .ShouldHaveValidationErrorFor(x => x.UserId);
+    }
+
+    [Fact]
+    public void CurrentPassword_Empty_Error()
+    {
+        _validator.TestValidate(Valid() with { CurrentPassword = "" })
+            .ShouldHaveValidationErrorFor(x => x.CurrentPassword);
+    }
+
+    [Fact]
+    public void NewPassword_Empty_Error()
+    {
+        _validator.TestValidate(Valid() with { NewPassword = "" })
+            .ShouldHaveValidationErrorFor(x => x.NewPassword);
+    }
+
+    [Fact]
+    public void NewPassword_TooShort_Error()
+    {
+        _validator.TestValidate(Valid() with { NewPassword = "P@1a" })
+            .ShouldHaveValidationErrorFor(x => x.NewPassword);
+    }
+
+    [Fact]
+    public void NewPassword_SameAsCurrent_Error()
+    {
+        _validator.TestValidate(Valid() with { NewPassword = "OldP@ssw0rd1" })
+            .ShouldHaveValidationErrorFor(x => x.NewPassword);
     }
 }
