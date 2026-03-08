@@ -14,7 +14,7 @@ namespace HotelBooking.Api.IntegrationTests.Workflows;
 /// Cancellation policy is driven by BookingSettings:
 ///   - CancellationFreeHours (default 24)
 ///   - CancellationFeePercent (default 0.30)
-/// Free cancellation = within CancellationFreeHours of confirmation (LastModifiedUtc).
+/// Free cancellation = within CancellationFreeHours of successful payment timestamp.
 /// After free window = (1 - CancellationFeePercent) refund, i.e. 70%.
 /// </summary>
 [Collection("Integration")]
@@ -71,9 +71,9 @@ public class CancellationFlowTests
         var booking = await SeedHelper.SeedConfirmedBooking(db, auth.Id, seed.Hotel,
             seed.HotelRoomType, seed.Rooms[0], future, future2);
 
-        // Move confirmation time back to simulate > 24h since confirmation
+        // Move payment success time back to simulate > 24h since confirmation
         await db.Database.ExecuteSqlInterpolatedAsync(
-            $"UPDATE [bookings] SET [LastModifiedUtc] = {DateTimeOffset.UtcNow.AddHours(-25)} WHERE [Id] = {booking.Id}");
+            $"UPDATE [payments] SET [PaidAtUtc] = {DateTimeOffset.UtcNow.AddHours(-25)} WHERE [BookingId] = {booking.Id}");
 
         var response = await client.PostAsJsonAsync(
             $"/api/v1/bookings/{booking.Id}/cancel",

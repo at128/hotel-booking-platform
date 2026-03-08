@@ -157,10 +157,10 @@ public class BookingsTests
         var booking = await SeedHelper.SeedConfirmedBooking(db, auth.Id, seed.Hotel,
             seed.HotelRoomType, seed.Rooms[0], farFuture, farFuture2);
 
-        // Move LastModifiedUtc back > 24h to simulate past free window
+        // Move payment success time back > 24h to simulate past free window
         // Based on BookingSettings: CancellationFreeHours = 24
         await db.Database.ExecuteSqlInterpolatedAsync(
-            $"UPDATE [bookings] SET [LastModifiedUtc] = {DateTimeOffset.UtcNow.AddHours(-25)} WHERE [Id] = {booking.Id}");
+            $"UPDATE [payments] SET [PaidAtUtc] = {DateTimeOffset.UtcNow.AddHours(-25)} WHERE [BookingId] = {booking.Id}");
 
         var response = await client.PostAsJsonAsync(
             $"/api/v1/bookings/{booking.Id}/cancel",

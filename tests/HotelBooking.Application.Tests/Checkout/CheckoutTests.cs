@@ -461,11 +461,14 @@ public sealed class CancelBookingCommandHandlerTests
         return booking;
     }
 
-    private static Payment MakeSucceeded(Booking b, decimal amt)
+    private static Payment MakeSucceeded(Booking b, decimal amt, int paidMinutesAgo = 1)
     {
         var p = TestHelpers.CreatePayment(bookingId: b.Id, amount: amt);
         p.SetProviderSession("sess");
         p.MarkAsSucceeded("txn_test");
+        var paidAt = DateTimeOffset.UtcNow.AddMinutes(-paidMinutesAgo);
+        TestHelpers.SetPrivateProp(p, "PaidAtUtc", paidAt);
+        TestHelpers.SetPrivateProp(p, "CreatedAtUtc", paidAt.AddMinutes(-1));
         TestHelpers.SetNav(p, "Booking", b);
         return p;
     }
@@ -495,7 +498,7 @@ public sealed class CancelBookingCommandHandlerTests
     public async Task Handle_AfterFreeWindow_Returns70PercentRefund()
     {
         var b = CreateConfirmedBooking(48 * 60, 200m);
-        SetupBookingWithReload(b, MakeSucceeded(b, 200m));
+        SetupBookingWithReload(b, MakeSucceeded(b, 200m, paidMinutesAgo: 48 * 60));
         SetupRefundSuccess();
 
         var r = await Sut().Handle(
@@ -648,7 +651,7 @@ public sealed class CancelBookingCommandHandlerTests
     public async Task Handle_PartialRefund_MarksPartiallyRefunded()
     {
         var b = CreateConfirmedBooking(48 * 60, 200m);
-        var pay = MakeSucceeded(b, 200m);
+        var pay = MakeSucceeded(b, 200m, paidMinutesAgo: 48 * 60);
         SetupBookingWithReload(b, pay);
         SetupRefundSuccess();
 
