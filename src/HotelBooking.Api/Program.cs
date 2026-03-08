@@ -11,6 +11,7 @@ using Serilog;
 var builder = WebApplication.CreateBuilder(args);
 
 ConfigureHostLogging(builder);
+ValidateProductionSecrets(builder);
 AddApplicationServices(builder);
 AddHealthChecks(builder);
 
@@ -120,6 +121,64 @@ static void MapHealthEndpoints(WebApplication app)
 
     liveEndpoint.RequireAuthorization(adminOnly);
     readyEndpoint.RequireAuthorization(adminOnly);
+}
+
+static void ValidateProductionSecrets(WebApplicationBuilder builder)
+{
+    if (!builder.Environment.IsProduction())
+        return;
+
+    var failures = new List<string>();
+
+    ValidateSecret(builder.Configuration, "JWT:Secret", minLength: 32, failures);
+    ValidateSecret(builder.Configuration, "Stripe:SecretKey", minLength: 8, failures);
+    ValidateSecret(builder.Configuration, "Stripe:WebhookSecret", minLength: 8, failures);
+    ValidateSecret(builder.Configuration, "Email:SmtpPassword", minLength: 8, failures);
+
+    var stripeSecret = builder.Configuration["Stripe:SecretKey"];
+    if (!string.IsNullOrWhiteSpace(stripeSecret) &&
+        stripeSecret.StartsWith("sk_test_", StringComparison.OrdinalIgnoreCase))
+    {
+        failures.Add("Stripe:SecretKey must be a live key in Production (sk_live_...).");
+    }
+
+    if (failures.Count == 0)
+        return;
+
+    throw new InvalidOperationException(
+        "Production secret validation failed: " + string.Join(" | ", failures));
+}
+
+static void ValidateSecret(
+    IConfiguration configuration,
+    string key,
+    int minLength,
+    List<string> failures)
+{
+    var value = configuration[key];
+
+    if (string.IsNullOrWhiteSpace(value) || value.Length < minLength)
+    {
+        failures.Add($"{key} is missing or too short.");
+        return;
+    }
+
+    if (LooksLikePlaceholder(value))
+    {
+        failures.Add($"{key} looks like a placeholder and must be replaced.");
+    }
+}
+
+static bool LooksLikePlaceholder(string value)
+{
+    var normalized = value.Trim().ToLowerInvariant();
+
+    return normalized.Contains("changeme", StringComparison.Ordinal)
+        || normalized.Contains("replace_me", StringComparison.Ordinal)
+        || normalized.Contains("placeholder", StringComparison.Ordinal)
+        || normalized.Contains("dummy", StringComparison.Ordinal)
+        || normalized.Contains("integration-tests", StringComparison.Ordinal)
+        || normalized.Contains("example", StringComparison.Ordinal);
 }
 
 public partial class Program;

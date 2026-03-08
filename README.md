@@ -111,6 +111,9 @@ All requests pass through a pipeline of cross-cutting behaviors:
 ### Error Handling
 The API uses a **Result pattern** instead of throwing exceptions for expected errors. Controllers map error types to appropriate HTTP status codes via a centralized `Problem()` method. A `GlobalExceptionHandler` catches unexpected exceptions and returns standardized ProblemDetails responses.
 
+### Monitoring Runbook
+Operational alerts and monitoring playbook are documented in `docs/monitoring-alerts-runbook.md`.
+
 ---
 
 ## Getting Started
@@ -167,6 +170,17 @@ dotnet run --project src/HotelBooking.Api
 ```bash
 dotnet test --filter "Category!=Integration&Category!=E2E"
 ```
+
+### Production Secrets Checklist
+
+Do not keep real secrets in `appsettings*.json` or source control. Provide them via environment variables or secret manager:
+
+- `JWT__Secret` (32+ chars)
+- `Stripe__SecretKey` (use live key in Production)
+- `Stripe__WebhookSecret`
+- `Email__SmtpHost`, `Email__SmtpUser`, `Email__SmtpPassword`, `Email__FromAddress`
+- `SEQ_ADMIN_PASSWORD`
+- `ConnectionStrings__DefaultConnection`
 
 ---
 
