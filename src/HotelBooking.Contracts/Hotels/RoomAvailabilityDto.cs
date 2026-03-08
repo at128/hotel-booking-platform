@@ -10,7 +10,8 @@ public sealed record RoomAvailabilityDto(
     int TotalRooms,
     int BookedRooms,
     int HeldRooms,
-    int AvailableRooms);
+    int AvailableRooms,
+    List<string> Images);
 
 public sealed record RoomAvailabilityResponse(
     Guid HotelId,
