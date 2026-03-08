@@ -23,6 +23,7 @@ using ImageDto = HotelBooking.Contracts.Admin.ImageDto;
 namespace HotelBooking.Api.Controllers;
 
 [Authorize(Roles = "Admin")]
+[EnableRateLimiting("admin")]
 public sealed class AdminHotelsController(ISender sender, IHotelImageUploadProcessor imageUploadProcessor) : ApiController
 {
     private const string AdminUploadsRateLimitPolicy = "admin-uploads";

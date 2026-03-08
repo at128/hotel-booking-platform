@@ -2,9 +2,11 @@
 using HotelBooking.Contracts.Search;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace HotelBooking.Api.Controllers;
 
+[EnableRateLimiting("public-read")]
 public sealed class SearchController(ISender sender) : ApiController
 {
     [HttpGet]

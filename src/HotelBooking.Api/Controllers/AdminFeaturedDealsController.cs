@@ -6,10 +6,12 @@ using HotelBooking.Contracts.Admin;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace HotelBooking.Api.Controllers;
 
 [Authorize(Roles = "Admin")]
+[EnableRateLimiting("admin")]
 public sealed class AdminFeaturedDealsController(ISender sender) : ApiController
 {
     [HttpGet]

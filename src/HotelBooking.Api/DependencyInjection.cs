@@ -19,6 +19,14 @@ public static class DependencyInjection
 {
     private const string FrontendCorsPolicy = "Frontend";
     private const string AuthRateLimitPolicy = "auth";
+    private const string AuthRefreshRateLimitPolicy = "auth-refresh";
+    private const string PublicReadRateLimitPolicy = "public-read";
+    private const string UserReadRateLimitPolicy = "user-read";
+    private const string UserWriteRateLimitPolicy = "user-write";
+    private const string CheckoutHoldRateLimitPolicy = "checkout-hold";
+    private const string CheckoutBookingRateLimitPolicy = "checkout-booking";
+    private const string EventsRateLimitPolicy = "events";
+    private const string AdminRateLimitPolicy = "admin";
     private const string AdminUploadsRateLimitPolicy = "admin-uploads";
     private const string WebhooksRateLimitPolicy = "webhooks";
 
@@ -115,6 +123,89 @@ public static class DependencyInjection
             configuration,
             "RateLimiting:Auth:WindowSeconds",
             60);
+        var authRefreshPermitLimit = GetPositiveIntOrDefault(
+            configuration,
+            "RateLimiting:AuthRefresh:PermitLimit",
+            20);
+        var authRefreshWindowSeconds = GetPositiveIntOrDefault(
+            configuration,
+            "RateLimiting:AuthRefresh:WindowSeconds",
+            60);
+
+        var publicReadTokenLimit = GetPositiveIntOrDefault(
+            configuration,
+            "RateLimiting:PublicRead:TokenLimit",
+            240);
+        var publicReadTokensPerPeriod = GetPositiveIntOrDefault(
+            configuration,
+            "RateLimiting:PublicRead:TokensPerPeriod",
+            240);
+        var publicReadReplenishmentSeconds = GetPositiveIntOrDefault(
+            configuration,
+            "RateLimiting:PublicRead:ReplenishmentPeriodSeconds",
+            60);
+
+        var userReadTokenLimit = GetPositiveIntOrDefault(
+            configuration,
+            "RateLimiting:UserRead:TokenLimit",
+            180);
+        var userReadTokensPerPeriod = GetPositiveIntOrDefault(
+            configuration,
+            "RateLimiting:UserRead:TokensPerPeriod",
+            180);
+        var userReadReplenishmentSeconds = GetPositiveIntOrDefault(
+            configuration,
+            "RateLimiting:UserRead:ReplenishmentPeriodSeconds",
+            60);
+
+        var userWritePermitLimit = GetPositiveIntOrDefault(
+            configuration,
+            "RateLimiting:UserWrite:PermitLimit",
+            60);
+        var userWriteWindowSeconds = GetPositiveIntOrDefault(
+            configuration,
+            "RateLimiting:UserWrite:WindowSeconds",
+            60);
+
+        var checkoutHoldPermitLimit = GetPositiveIntOrDefault(
+            configuration,
+            "RateLimiting:CheckoutHold:PermitLimit",
+            8);
+        var checkoutHoldWindowSeconds = GetPositiveIntOrDefault(
+            configuration,
+            "RateLimiting:CheckoutHold:WindowSeconds",
+            60);
+        var checkoutHoldSegments = Math.Max(1, GetPositiveIntOrDefault(
+            configuration,
+            "RateLimiting:CheckoutHold:SegmentsPerWindow",
+            4));
+
+        var checkoutBookingPermitLimit = GetPositiveIntOrDefault(
+            configuration,
+            "RateLimiting:CheckoutBooking:PermitLimit",
+            12);
+        var checkoutBookingWindowSeconds = GetPositiveIntOrDefault(
+            configuration,
+            "RateLimiting:CheckoutBooking:WindowSeconds",
+            60);
+
+        var eventsPermitLimit = GetPositiveIntOrDefault(
+            configuration,
+            "RateLimiting:Events:PermitLimit",
+            120);
+        var eventsWindowSeconds = GetPositiveIntOrDefault(
+            configuration,
+            "RateLimiting:Events:WindowSeconds",
+            60);
+
+        var adminPermitLimit = GetPositiveIntOrDefault(
+            configuration,
+            "RateLimiting:Admin:PermitLimit",
+            120);
+        var adminWindowSeconds = GetPositiveIntOrDefault(
+            configuration,
+            "RateLimiting:Admin:WindowSeconds",
+            60);
 
         var adminUploadsPermitLimit = GetPositiveIntOrDefault(
             configuration,
@@ -166,12 +257,140 @@ public static class DependencyInjection
                 });
             });
 
+            options.AddPolicy(AuthRefreshRateLimitPolicy, httpContext =>
+            {
+                var ip = GetClientIp(httpContext);
+
+                return RateLimitPartition.GetFixedWindowLimiter(
+                    partitionKey: $"auth-refresh:{ip}",
+                    factory: _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = authRefreshPermitLimit,
+                        Window = TimeSpan.FromSeconds(authRefreshWindowSeconds),
+                        AutoReplenishment = true,
+                        QueueLimit = 0,
+                        QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+                    });
+            });
+
+            options.AddPolicy(PublicReadRateLimitPolicy, httpContext =>
+            {
+                var ip = GetClientIp(httpContext);
+
+                return RateLimitPartition.GetTokenBucketLimiter(
+                    partitionKey: $"public-read:{ip}",
+                    factory: _ => new TokenBucketRateLimiterOptions
+                    {
+                        TokenLimit = publicReadTokenLimit,
+                        TokensPerPeriod = publicReadTokensPerPeriod,
+                        ReplenishmentPeriod = TimeSpan.FromSeconds(publicReadReplenishmentSeconds),
+                        AutoReplenishment = true,
+                        QueueLimit = 0,
+                        QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+                    });
+            });
+
+            options.AddPolicy(UserReadRateLimitPolicy, httpContext =>
+            {
+                var key = GetUserOrIpKey(httpContext);
+
+                return RateLimitPartition.GetTokenBucketLimiter(
+                    partitionKey: $"user-read:{key}",
+                    factory: _ => new TokenBucketRateLimiterOptions
+                    {
+                        TokenLimit = userReadTokenLimit,
+                        TokensPerPeriod = userReadTokensPerPeriod,
+                        ReplenishmentPeriod = TimeSpan.FromSeconds(userReadReplenishmentSeconds),
+                        AutoReplenishment = true,
+                        QueueLimit = 0,
+                        QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+                    });
+            });
+
+            options.AddPolicy(UserWriteRateLimitPolicy, httpContext =>
+            {
+                var key = GetUserOrIpKey(httpContext);
+
+                return RateLimitPartition.GetFixedWindowLimiter(
+                    partitionKey: $"user-write:{key}",
+                    factory: _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = userWritePermitLimit,
+                        Window = TimeSpan.FromSeconds(userWriteWindowSeconds),
+                        AutoReplenishment = true,
+                        QueueLimit = 0,
+                        QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+                    });
+            });
+
+            options.AddPolicy(CheckoutHoldRateLimitPolicy, httpContext =>
+            {
+                var key = GetUserOrIpKey(httpContext);
+
+                return RateLimitPartition.GetSlidingWindowLimiter(
+                    partitionKey: $"checkout-hold:{key}",
+                    factory: _ => new SlidingWindowRateLimiterOptions
+                    {
+                        PermitLimit = checkoutHoldPermitLimit,
+                        Window = TimeSpan.FromSeconds(checkoutHoldWindowSeconds),
+                        SegmentsPerWindow = checkoutHoldSegments,
+                        AutoReplenishment = true,
+                        QueueLimit = 0,
+                        QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+                    });
+            });
+
+            options.AddPolicy(CheckoutBookingRateLimitPolicy, httpContext =>
+            {
+                var key = GetUserOrIpKey(httpContext);
+
+                return RateLimitPartition.GetFixedWindowLimiter(
+                    partitionKey: $"checkout-booking:{key}",
+                    factory: _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = checkoutBookingPermitLimit,
+                        Window = TimeSpan.FromSeconds(checkoutBookingWindowSeconds),
+                        AutoReplenishment = true,
+                        QueueLimit = 0,
+                        QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+                    });
+            });
+
+            options.AddPolicy(EventsRateLimitPolicy, httpContext =>
+            {
+                var key = GetUserOrIpKey(httpContext);
+
+                return RateLimitPartition.GetFixedWindowLimiter(
+                    partitionKey: $"events:{key}",
+                    factory: _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = eventsPermitLimit,
+                        Window = TimeSpan.FromSeconds(eventsWindowSeconds),
+                        AutoReplenishment = true,
+                        QueueLimit = 0,
+                        QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+                    });
+            });
+
+            options.AddPolicy(AdminRateLimitPolicy, httpContext =>
+            {
+                var key = GetUserOrIpKey(httpContext);
+
+                return RateLimitPartition.GetFixedWindowLimiter(
+                    partitionKey: $"admin:{key}",
+                    factory: _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = adminPermitLimit,
+                        Window = TimeSpan.FromSeconds(adminWindowSeconds),
+                        AutoReplenishment = true,
+                        QueueLimit = 0,
+                        QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+                    });
+            });
+
             options.AddPolicy(AdminUploadsRateLimitPolicy, httpContext =>
             {
-                var userId = httpContext.User?.FindFirstValue(ClaimTypes.NameIdentifier);
-                var key = !string.IsNullOrWhiteSpace(userId)
-                    ? $"user:{userId}"
-                    : $"ip:{GetClientIp(httpContext)}";
+                var key = GetUserOrIpKey(httpContext);
 
                 return RateLimitPartition.GetFixedWindowLimiter(
                     partitionKey: $"admin-upload:{key}",
@@ -319,6 +538,14 @@ public static class DependencyInjection
 
     private static string GetClientIp(HttpContext httpContext) =>
         httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
+    private static string GetUserOrIpKey(HttpContext httpContext)
+    {
+        var userId = httpContext.User?.FindFirstValue(ClaimTypes.NameIdentifier);
+        return !string.IsNullOrWhiteSpace(userId)
+            ? $"user:{userId}"
+            : $"ip:{GetClientIp(httpContext)}";
+    }
 
     private static IServiceCollection AddSwaggerDocumentation(this IServiceCollection services)
     {

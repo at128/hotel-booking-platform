@@ -5,6 +5,7 @@ using HotelBooking.Contracts.Checkout;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using System.Security.Claims;
 
 namespace HotelBooking.Api.Controllers;
@@ -16,6 +17,7 @@ public sealed class CheckoutController(ISender sender, IUser currentUser) : ApiC
     /// Step 1: Create a checkout hold from the user's cart.
     /// Returns pricing summary and hold expiry. Client should proceed to CreateBooking before expiry.
     /// </summary>
+    [EnableRateLimiting("checkout-hold")]
     [HttpPost("hold")]
     [ProducesResponseType(typeof(CheckoutHoldResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -36,6 +38,7 @@ public sealed class CheckoutController(ISender sender, IUser currentUser) : ApiC
     /// Step 2: Confirm the booking and obtain a Stripe payment URL.
     /// Requires valid, non-expired checkout holds from Step 1.
     /// </summary>
+    [EnableRateLimiting("checkout-booking")]
     [HttpPost("booking")]
     [ProducesResponseType(typeof(CreateBookingResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]

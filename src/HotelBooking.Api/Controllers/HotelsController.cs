@@ -11,10 +11,12 @@ using HotelBooking.Contracts.Reviews;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using System.Security.Claims;
 
 [ApiController]
 [Route("api/v{version:apiVersion}/hotels")]
+[EnableRateLimiting("public-read")]
 public sealed class HotelsController(ISender sender) : ApiController
 {
 
@@ -49,6 +51,7 @@ public sealed class HotelsController(ISender sender) : ApiController
     }
 
     [Authorize]
+    [EnableRateLimiting("user-write")]
     [HttpPost("{hotelId:guid}/reviews")]
     [ProducesResponseType(typeof(ReviewDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -96,6 +99,7 @@ public sealed class HotelsController(ISender sender) : ApiController
 
 
     [Authorize]
+    [EnableRateLimiting("user-write")]
     [HttpPut("{hotelId:guid}/reviews/{reviewId:guid}")]
     public async Task<IActionResult> UpdateReview(
     Guid hotelId, Guid reviewId,
@@ -113,6 +117,7 @@ public sealed class HotelsController(ISender sender) : ApiController
     }
 
     [Authorize]
+    [EnableRateLimiting("user-write")]
     [HttpDelete("{hotelId:guid}/reviews/{reviewId:guid}")]
     public async Task<IActionResult> DeleteReview(
         Guid hotelId, Guid reviewId, CancellationToken ct)

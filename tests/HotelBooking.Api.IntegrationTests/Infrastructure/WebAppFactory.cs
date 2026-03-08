@@ -83,6 +83,25 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
                 ["RateLimiting:Global:ReplenishmentPeriodSeconds"] = "60",
                 ["RateLimiting:Auth:PermitLimit"] = "100000",
                 ["RateLimiting:Auth:WindowSeconds"] = "60",
+                ["RateLimiting:AuthRefresh:PermitLimit"] = "100000",
+                ["RateLimiting:AuthRefresh:WindowSeconds"] = "60",
+                ["RateLimiting:PublicRead:TokenLimit"] = "100000",
+                ["RateLimiting:PublicRead:TokensPerPeriod"] = "100000",
+                ["RateLimiting:PublicRead:ReplenishmentPeriodSeconds"] = "60",
+                ["RateLimiting:UserRead:TokenLimit"] = "100000",
+                ["RateLimiting:UserRead:TokensPerPeriod"] = "100000",
+                ["RateLimiting:UserRead:ReplenishmentPeriodSeconds"] = "60",
+                ["RateLimiting:UserWrite:PermitLimit"] = "100000",
+                ["RateLimiting:UserWrite:WindowSeconds"] = "60",
+                ["RateLimiting:CheckoutHold:PermitLimit"] = "100000",
+                ["RateLimiting:CheckoutHold:WindowSeconds"] = "60",
+                ["RateLimiting:CheckoutHold:SegmentsPerWindow"] = "4",
+                ["RateLimiting:CheckoutBooking:PermitLimit"] = "100000",
+                ["RateLimiting:CheckoutBooking:WindowSeconds"] = "60",
+                ["RateLimiting:Events:PermitLimit"] = "100000",
+                ["RateLimiting:Events:WindowSeconds"] = "60",
+                ["RateLimiting:Admin:PermitLimit"] = "100000",
+                ["RateLimiting:Admin:WindowSeconds"] = "60",
                 ["RateLimiting:AdminUploads:PermitLimit"] = "100000",
                 ["RateLimiting:AdminUploads:WindowSeconds"] = "60",
                 ["RateLimiting:Webhooks:PermitLimit"] = "100000",
@@ -130,6 +149,94 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncLifetime
                 options.AddPolicy("auth", _ =>
                     RateLimitPartition.GetFixedWindowLimiter(
                         partitionKey: "tests-auth",
+                        factory: _ => new FixedWindowRateLimiterOptions
+                        {
+                            PermitLimit = 1_000_000,
+                            Window = TimeSpan.FromMinutes(1),
+                            AutoReplenishment = true,
+                            QueueLimit = 0
+                        }));
+
+                options.AddPolicy("auth-refresh", _ =>
+                    RateLimitPartition.GetFixedWindowLimiter(
+                        partitionKey: "tests-auth-refresh",
+                        factory: _ => new FixedWindowRateLimiterOptions
+                        {
+                            PermitLimit = 1_000_000,
+                            Window = TimeSpan.FromMinutes(1),
+                            AutoReplenishment = true,
+                            QueueLimit = 0
+                        }));
+
+                options.AddPolicy("public-read", _ =>
+                    RateLimitPartition.GetFixedWindowLimiter(
+                        partitionKey: "tests-public-read",
+                        factory: _ => new FixedWindowRateLimiterOptions
+                        {
+                            PermitLimit = 1_000_000,
+                            Window = TimeSpan.FromMinutes(1),
+                            AutoReplenishment = true,
+                            QueueLimit = 0
+                        }));
+
+                options.AddPolicy("user-read", _ =>
+                    RateLimitPartition.GetFixedWindowLimiter(
+                        partitionKey: "tests-user-read",
+                        factory: _ => new FixedWindowRateLimiterOptions
+                        {
+                            PermitLimit = 1_000_000,
+                            Window = TimeSpan.FromMinutes(1),
+                            AutoReplenishment = true,
+                            QueueLimit = 0
+                        }));
+
+                options.AddPolicy("user-write", _ =>
+                    RateLimitPartition.GetFixedWindowLimiter(
+                        partitionKey: "tests-user-write",
+                        factory: _ => new FixedWindowRateLimiterOptions
+                        {
+                            PermitLimit = 1_000_000,
+                            Window = TimeSpan.FromMinutes(1),
+                            AutoReplenishment = true,
+                            QueueLimit = 0
+                        }));
+
+                options.AddPolicy("checkout-hold", _ =>
+                    RateLimitPartition.GetFixedWindowLimiter(
+                        partitionKey: "tests-checkout-hold",
+                        factory: _ => new FixedWindowRateLimiterOptions
+                        {
+                            PermitLimit = 1_000_000,
+                            Window = TimeSpan.FromMinutes(1),
+                            AutoReplenishment = true,
+                            QueueLimit = 0
+                        }));
+
+                options.AddPolicy("checkout-booking", _ =>
+                    RateLimitPartition.GetFixedWindowLimiter(
+                        partitionKey: "tests-checkout-booking",
+                        factory: _ => new FixedWindowRateLimiterOptions
+                        {
+                            PermitLimit = 1_000_000,
+                            Window = TimeSpan.FromMinutes(1),
+                            AutoReplenishment = true,
+                            QueueLimit = 0
+                        }));
+
+                options.AddPolicy("events", _ =>
+                    RateLimitPartition.GetFixedWindowLimiter(
+                        partitionKey: "tests-events",
+                        factory: _ => new FixedWindowRateLimiterOptions
+                        {
+                            PermitLimit = 1_000_000,
+                            Window = TimeSpan.FromMinutes(1),
+                            AutoReplenishment = true,
+                            QueueLimit = 0
+                        }));
+
+                options.AddPolicy("admin", _ =>
+                    RateLimitPartition.GetFixedWindowLimiter(
+                        partitionKey: "tests-admin",
                         factory: _ => new FixedWindowRateLimiterOptions
                         {
                             PermitLimit = 1_000_000,

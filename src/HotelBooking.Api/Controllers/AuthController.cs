@@ -54,6 +54,7 @@ public sealed class AuthController(ISender sender) : ApiController
 
     /// <summary>Get the current user's profile.</summary>
     [Authorize]
+    [EnableRateLimiting("user-read")]
     [HttpGet("profile")]
     [ProducesResponseType(typeof(ProfileResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -70,6 +71,7 @@ public sealed class AuthController(ISender sender) : ApiController
 
     /// <summary>Update the current user's profile.</summary>
     [Authorize]
+    [EnableRateLimiting("user-write")]
     [HttpPut("profile")]
     [ProducesResponseType(typeof(ProfileResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -85,6 +87,7 @@ public sealed class AuthController(ISender sender) : ApiController
 
     /// <summary>Change the current user's password.</summary>
     [Authorize]
+    [EnableRateLimiting("user-write")]
     [HttpPost("change-password")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -108,6 +111,7 @@ public sealed class AuthController(ISender sender) : ApiController
             Problem);
     }
 
+    [EnableRateLimiting("auth-refresh")]
     [HttpPost("refresh")]
     [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
     [ProducesResponseType(typeof(TokenResponse), StatusCodes.Status200OK)]
@@ -120,6 +124,7 @@ public sealed class AuthController(ISender sender) : ApiController
 
 
     [Authorize]
+    [EnableRateLimiting("user-write")]
     [HttpPost("logout")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Logout(CancellationToken ct)
@@ -135,6 +140,7 @@ public sealed class AuthController(ISender sender) : ApiController
 
 
     [Authorize]
+    [EnableRateLimiting("user-write")]
     [HttpPost("logout-all")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> LogoutAllSessions(CancellationToken ct)

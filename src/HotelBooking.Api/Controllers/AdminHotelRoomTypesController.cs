@@ -8,6 +8,7 @@ using HotelBooking.Contracts.Admin.HotelRoomTypes;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace HotelBooking.Api.Controllers;
 
@@ -15,6 +16,7 @@ namespace HotelBooking.Api.Controllers;
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/admin/hotel-room-types")]
 [Authorize(Roles = "Admin")]
+[EnableRateLimiting("admin")]
 public sealed class AdminHotelRoomTypesController(ISender sender) : ApiController
 {
     [HttpGet]

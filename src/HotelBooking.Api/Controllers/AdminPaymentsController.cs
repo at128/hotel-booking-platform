@@ -2,10 +2,12 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace HotelBooking.Api.Controllers;
 
 [Authorize(Roles = "Admin")]
+[EnableRateLimiting("admin")]
 public sealed class AdminPaymentsController(ISender sender) : ApiController
 {
     [HttpGet]

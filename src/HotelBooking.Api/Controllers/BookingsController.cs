@@ -8,10 +8,12 @@ using HotelBooking.Contracts.Common;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace HotelBooking.Api.Controllers;
 
 [Authorize]
+[EnableRateLimiting("user-read")]
 public sealed class BookingsController(ISender sender, IUser currentUser) : ApiController
 {
     /// <summary>
@@ -55,6 +57,7 @@ public sealed class BookingsController(ISender sender, IUser currentUser) : ApiC
     }
 
     /// <summary>Cancel a confirmed booking. Free within certain hours given in settings; fee applies after free window.</summary>
+    [EnableRateLimiting("user-write")]
     [HttpPost("{id:guid}/cancel")]
     [ProducesResponseType(typeof(CancellationDetailsResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
