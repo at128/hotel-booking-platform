@@ -8,7 +8,7 @@ It covers:
 - cart, checkout holds, booking creation, Stripe payment session generation
 - Stripe webhooks, cancellation/refund workflows
 - full admin APIs for hotel inventory/content management
-- rate limiting, security headers, logging, health checks, and CI/CD templates
+- rate limiting, security headers, logging, health checks, and CI pipeline
 
 ## Table Of Contents
 - [Project Scope](#project-scope)
@@ -22,7 +22,7 @@ It covers:
 - [Run Locally](#run-locally)
 - [Seeding And Admin Bootstrap](#seeding-and-admin-bootstrap)
 - [Testing](#testing)
-- [CI/CD](#cicd)
+- [CI](#ci)
 - [Monitoring And Security](#monitoring-and-security)
 - [Useful Docs](#useful-docs)
 
@@ -401,22 +401,11 @@ Integration tests use:
 - fake email service
 - non-blocking rate-limit overrides for test stability
 
-## CI/CD
+## CI
 
-### CI
 - Workflow: `.github/workflows/ci.yml`
 - Triggers: push/PR on `dev` and `main`, plus manual dispatch
 - Runs restore, build, all test projects under `tests/`, and coverage artifact generation
-
-### CD
-- Workflows:
-  - `.github/workflows/cd-staging.yml`
-  - `.github/workflows/cd-production.yml`
-- Manual-only (`workflow_dispatch`)
-- Guarded by repository variable:
-  - `ENABLE_CD=true` to allow deployment jobs
-- Production requires explicit confirmation input: `DEPLOY`
-- Includes health-check and rollback logic over SSH
 
 ## Monitoring And Security
 
