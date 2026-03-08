@@ -1,23 +1,15 @@
 services:
   sqlserver:
-    image: mcr.microsoft.com/mssql/server:2022-latest
+    image: mcr.microsoft.com/azure-sql-edge:latest
     container_name: hotelbooking-sql
     environment:
       ACCEPT_EULA: "Y"
       SA_PASSWORD: "${SA_PASSWORD}"
       MSSQL_PID: "Developer"
     ports:
-      - "1433:1433"
+      - "14333:1433"
     volumes:
       - sql_data:/var/opt/mssql
-    healthcheck:
-      test: [
-        "CMD-SHELL",
-        "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P '${SA_PASSWORD}' -C -Q 'SELECT 1' || exit 1"
-      ]
-      interval: 10s
-      timeout: 5s
-      retries: 10
     networks:
       - hotelbooking-net
 
@@ -34,10 +26,11 @@ services:
     volumes:
       - es_data:/usr/share/elasticsearch/data
     healthcheck:
-      test: [
-        "CMD-SHELL",
-        "curl -s -u elastic:${ELASTIC_PASSWORD} http://localhost:9200/_cluster/health | grep -q '\"status\":\"green\\|yellow\"'"
-      ]
+      test:
+        [
+          "CMD-SHELL",
+          "curl -s -u elastic:${ELASTIC_PASSWORD} http://localhost:9200/_cluster/health | grep -q '\"status\":\"green\\|yellow\"'",
+        ]
       interval: 15s
       timeout: 10s
       retries: 20
@@ -77,6 +70,15 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: "Development"
       ConnectionStrings__DefaultConnection: "Server=sqlserver,1433;Database=HotelBookingDb;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True;"
+      JWT__Secret: "${JWT_SECRET}"
+      JWT__Issuer: "HotelBookingApi"
+      JWT__Audience: "HotelBookingClient"
+      JWT__ExpiryMinutes: "15"
+      Stripe__SecretKey: "${STRIPE_SECRET_KEY}"
+      Stripe__WebhookSecret: "${STRIPE_WEBHOOK_SECRET}"
+      Email__SmtpHost: "dummy_host"
+      Email__SmtpUser: "dummy_user"
+      Email__SmtpPassword: "dummy_password"
       Elasticsearch__Url: "http://elasticsearch:9200"
       Elasticsearch__Username: "elastic"
       Elasticsearch__Password: "${ELASTIC_PASSWORD}"
@@ -89,13 +91,13 @@ services:
       Embedding__Dimensions: "384"
       Embedding__TimeoutSeconds: "30"
     ports:
-      - "8080:8080"
+      - "5009:8080"
     depends_on:
-      sqlserver:
-        condition: service_healthy
       elasticsearch:
         condition: service_healthy
       embedding-service:
+        condition: service_started
+      sqlserver:
         condition: service_started
     networks:
       - hotelbooking-net
