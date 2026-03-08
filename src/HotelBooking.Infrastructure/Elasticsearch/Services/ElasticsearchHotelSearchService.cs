@@ -257,7 +257,7 @@ public sealed class ElasticsearchHotelSearchService : IHotelSearchService
 
         if (request.MinStarRating.HasValue)
         {
-            filters.Add(new NumberRangeQuery("starRating")
+            filters.Add(new NumberRangeQuery(new Field("starRating"))
             {
                 Gte = request.MinStarRating.Value
             });
@@ -265,7 +265,7 @@ public sealed class ElasticsearchHotelSearchService : IHotelSearchService
 
         if (request.MinPrice.HasValue)
         {
-            filters.Add(new NumberRangeQuery("minPricePerNight")
+            filters.Add(new NumberRangeQuery(new Field("minPricePerNight"))
             {
                 Gte = (double)request.MinPrice.Value
             });
@@ -273,7 +273,7 @@ public sealed class ElasticsearchHotelSearchService : IHotelSearchService
 
         if (request.MaxPrice.HasValue)
         {
-            filters.Add(new NumberRangeQuery("minPricePerNight")
+            filters.Add(new NumberRangeQuery(new Field("minPricePerNight"))
             {
                 Lte = (double)request.MaxPrice.Value
             });
@@ -283,8 +283,8 @@ public sealed class ElasticsearchHotelSearchService : IHotelSearchService
         {
             filters.Add(new NestedQuery
             {
-                Path = "roomTypes",
-                Query = new TermQuery("roomTypes.roomTypeId")
+                Path = new Field("roomTypes"),
+                Query = new TermQuery(new Field("roomTypes.roomTypeId"))
                 {
                     Value = request.RoomTypeId.Value.ToString()
                 }
@@ -297,7 +297,7 @@ public sealed class ElasticsearchHotelSearchService : IHotelSearchService
 
             if (request.Adults.HasValue)
             {
-                nestedMust.Add(new NumberRangeQuery("roomTypes.adultCapacity")
+                nestedMust.Add(new NumberRangeQuery(new Field("roomTypes.adultCapacity"))
                 {
                     Gte = request.Adults.Value
                 });
@@ -305,7 +305,7 @@ public sealed class ElasticsearchHotelSearchService : IHotelSearchService
 
             if (request.Children.HasValue)
             {
-                nestedMust.Add(new NumberRangeQuery("roomTypes.childCapacity")
+                nestedMust.Add(new NumberRangeQuery(new Field("roomTypes.childCapacity"))
                 {
                     Gte = request.Children.Value
                 });
@@ -315,7 +315,7 @@ public sealed class ElasticsearchHotelSearchService : IHotelSearchService
             {
                 filters.Add(new NestedQuery
                 {
-                    Path = "roomTypes",
+                    Path = new Field("roomTypes"),
                     Query = new BoolQuery
                     {
                         Must = nestedMust
@@ -328,7 +328,7 @@ public sealed class ElasticsearchHotelSearchService : IHotelSearchService
         {
             foreach (var amenity in request.Amenities.Where(a => !string.IsNullOrWhiteSpace(a)))
             {
-                filters.Add(new TermQuery("amenities")
+                filters.Add(new TermQuery(new Field("amenities"))
                 {
                     Value = amenity.Trim()
                 });
