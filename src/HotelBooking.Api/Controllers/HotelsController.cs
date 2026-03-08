@@ -3,6 +3,8 @@ using HotelBooking.Application.Features.Hotels.Queries.GetHotelDetails;
 using HotelBooking.Application.Features.Hotels.Queries.GetHotelGallery;
 using HotelBooking.Application.Features.Hotels.Queries.GetRoomAvailability;
 using HotelBooking.Application.Features.Reviews.Commands.CreateHotelReview;
+using HotelBooking.Application.Features.Reviews.Commands.DeleteReview;
+using HotelBooking.Application.Features.Reviews.Commands.UpdateReview;
 using HotelBooking.Application.Features.Reviews.Queries.GetHotelReviews;
 using HotelBooking.Contracts.Hotels;
 using HotelBooking.Contracts.Reviews;
@@ -90,5 +92,39 @@ public sealed class HotelsController(ISender sender) : ApiController
     {
         var result = await sender.Send(new GetHotelReviewsQuery(id, page, pageSize), ct);
         return result.Match(Ok, Problem);
+    }
+
+
+    [Authorize]
+    [HttpPut("{hotelId:guid}/reviews/{reviewId:guid}")]
+    public async Task<IActionResult> UpdateReview(
+    Guid hotelId, Guid reviewId,
+    [FromBody] UpdateReviewRequest request,
+    CancellationToken ct)
+    {
+        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!Guid.TryParse(userIdClaim, out var userId))
+            return Unauthorized();
+
+        var result = await sender.Send(new UpdateReviewCommand(
+            reviewId, userId, request.Rating, request.Title, request.Comment), ct);
+
+        return result.Match(Ok, Problem);
+    }
+
+    [Authorize]
+    [HttpDelete("{hotelId:guid}/reviews/{reviewId:guid}")]
+    public async Task<IActionResult> DeleteReview(
+        Guid hotelId, Guid reviewId, CancellationToken ct)
+    {
+        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!Guid.TryParse(userIdClaim, out var userId))
+            return Unauthorized();
+
+        var isAdmin = User.IsInRole("Admin");
+        var result = await sender.Send(
+            new DeleteReviewCommand(reviewId, userId, isAdmin), ct);
+
+        return result.Match(_ => NoContent(), Problem);
     }
 }
