@@ -1,21 +1,19 @@
-﻿using FluentValidation;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using FluentValidation;
+using HotelBooking.Domain.Common.Constants;
 
-namespace HotelBooking.Application.Features.Cart.Commands.UpdateCartItem
+namespace HotelBooking.Application.Features.Cart.Commands.UpdateCartItem;
+
+public sealed class UpdateCartItemCommandValidator : AbstractValidator<UpdateCartItemCommand>
 {
-    public class UpdateCartItemCommandValidator : AbstractValidator<UpdateCartItemCommand>
+    public UpdateCartItemCommandValidator()
     {
-        public UpdateCartItemCommandValidator()
-        {
-            RuleFor(x => x.UserId).NotEmpty();
-            RuleFor(x => x.CartItemId).NotEmpty();
-            RuleFor(x => x.Quantity)
-                .GreaterThan(0)
-                .WithErrorCode("InvalidQuantity");
-        }
+        RuleFor(x => x.UserId).NotEmpty();
+        RuleFor(x => x.CartItemId).NotEmpty();
+        RuleFor(x => x.Quantity)
+            .InclusiveBetween(
+                HotelBookingConstants.Cart.MinQuantity,
+                HotelBookingConstants.Cart.MaxQuantity)
+            .WithMessage(
+                $"Quantity must be between {HotelBookingConstants.Cart.MinQuantity} and {HotelBookingConstants.Cart.MaxQuantity}.");
     }
 }
