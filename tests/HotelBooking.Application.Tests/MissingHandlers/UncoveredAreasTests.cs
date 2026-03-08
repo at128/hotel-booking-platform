@@ -337,7 +337,9 @@ public sealed class ReviewCommandMissingTests
     {
         var userId = Guid.NewGuid();
         var review = new Review(Guid.NewGuid(), userId, Guid.NewGuid(), Guid.NewGuid(), 4, "old", "old");
+        var hotel = TestHelpers.CreateHotel(id: review.HotelId);
         _db.Setup(x => x.Reviews).Returns(new List<Review> { review }.AsQueryable().BuildMockDbSet().Object);
+        _db.Setup(x => x.Hotels).Returns(new List<Hotel> { hotel }.AsQueryable().BuildMockDbSet().Object);
         _db.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
         var update = new UpdateReviewCommandHandler(_db.Object);
