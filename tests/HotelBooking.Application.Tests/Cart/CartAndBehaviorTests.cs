@@ -15,6 +15,7 @@ using HotelBooking.Domain.Common.Results;
 using HotelBooking.Domain.Hotels;
 using HotelBooking.Domain.Rooms;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using MockQueryable.Moq;
 using Moq;
@@ -294,6 +295,47 @@ namespace HotelBooking.Application.Tests.Cart
             // Assert
             result.IsError.Should().BeTrue();
             result.TopError.Code.Should().Be(ApplicationErrors.Cart.QuantityExceedsCapacity.Code);
+        }
+
+        [Fact]
+        public async Task Handle_InvalidGuests_ReturnsError()
+        {
+            var hrt = TestHelpers.CreateHotelRoomType();
+            SetupHotelRoomTypes([hrt]);
+            SetupCartItems([]);
+            SetupRooms([]);
+            SetupBookingRooms([]);
+            SetupCheckoutHolds([]);
+
+            var cmd = new AddToCartCommand(
+                UserId: Guid.NewGuid(),
+                HotelRoomTypeId: hrt.Id,
+                CheckIn: new DateOnly(2026, 8, 1),
+                CheckOut: new DateOnly(2026, 8, 5),
+                Quantity: 1,
+                Adults: 0,
+                Children: -1);
+
+            var result = await CreateHandler().Handle(cmd, default);
+
+            result.IsError.Should().BeTrue();
+            result.TopError.Code.Should().Be(ApplicationErrors.Cart.InvalidGuests.Code);
+        }
+
+        [Theory]
+        [InlineData("duplicate key value", true)]
+        [InlineData("UNIQUE KEY violation", true)]
+        [InlineData("Some unique constraint violation", true)]
+        [InlineData("Foreign key violation", false)]
+        public void IsLikelyUniqueConstraintViolation_DetectsPatterns(string message, bool expected)
+        {
+            var method = typeof(AddToCartCommandHandler)
+                .GetMethod("IsLikelyUniqueConstraintViolation", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+
+            var ex = new DbUpdateException("update failed", new Exception(message));
+            var actual = (bool)method.Invoke(null, [ex])!;
+
+            actual.Should().Be(expected);
         }
     }
 }

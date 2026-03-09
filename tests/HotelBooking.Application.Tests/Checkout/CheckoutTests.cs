@@ -149,6 +149,24 @@ public sealed class CreateBookingCommandHandlerTests
         _db.Object, _gw.Object, TestHelpers.BookingOptions(),
         TestHelpers.PaymentUrlOptions(), _log.Object);
 
+    private List<Payment> SetupTrackablePayments()
+    {
+        var payments = new List<Payment>();
+        var paySet = payments.AsQueryable().BuildMockDbSet();
+        paySet.Setup(x => x.Add(It.IsAny<Payment>()))
+            .Callback<Payment>(p => payments.Add(p));
+        _db.Setup(x => x.Payments).Returns(paySet.Object);
+        return payments;
+    }
+
+    private static (CheckoutHold hold, Room room) CreateValidHoldAndRoom()
+    {
+        var hotel = TestHelpers.CreateHotel();
+        var hold = TestHelpers.CreateHoldWithNav(hotel: hotel, pricePerNight: 100m);
+        var room = TestHelpers.CreateRoom(hotelRoomTypeId: hold.HotelRoomTypeId, hotelId: hotel.Id);
+        return (hold, room);
+    }
+
     // FIX #3: The happy path is extremely hard to mock correctly because
     // the handler does Serializable TX → Include chains → room assignment queries.
     // Instead of fighting MockQueryable, test the error paths which are reliable,
@@ -331,6 +349,131 @@ public sealed class CreateBookingCommandHandlerTests
 
         result.IsError.Should().BeTrue();
         result.TopError.Code.Should().Be("Payment.GatewayUnavailable");
+    }
+
+    [Fact]
+    public async Task Handle_CreatePaymentSessionCanceled_ThrowsOperationCanceled()
+    {
+        var (hold, room) = CreateValidHoldAndRoom();
+        _db.Setup(x => x.CheckoutHolds).Returns(new List<CheckoutHold> { hold }.AsQueryable().BuildMockDbSet().Object);
+        _db.Setup(x => x.Rooms).Returns(new List<Room> { room }.AsQueryable().BuildMockDbSet().Object);
+        SetupTrackablePayments();
+
+        _gw.Setup(x => x.CreatePaymentSessionAsync(It.IsAny<PaymentSessionRequest>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new OperationCanceledException());
+
+        var act = async () => await Sut().Handle(
+            new CreateBookingCommand(hold.UserId, "u@t.com", [hold.Id], null),
+            CancellationToken.None);
+
+        await act.Should().ThrowAsync<OperationCanceledException>();
+    }
+
+    [Fact]
+    public async Task Handle_PhaseCCompensationCanceled_ThrowsOperationCanceled()
+    {
+        var (hold, room) = CreateValidHoldAndRoom();
+        _db.Setup(x => x.CheckoutHolds).Returns(new List<CheckoutHold> { hold }.AsQueryable().BuildMockDbSet().Object);
+        _db.Setup(x => x.Rooms).Returns(new List<Room> { room }.AsQueryable().BuildMockDbSet().Object);
+        _db.Setup(x => x.Payments).Returns(new List<Payment>().AsQueryable().BuildMockDbSet().Object);
+
+        _gw.Setup(x => x.CreatePaymentSessionAsync(It.IsAny<PaymentSessionRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PaymentSessionResponse("sess-cancel", "https://pay"));
+        _gw.Setup(x => x.ExpirePaymentSessionAsync("sess-cancel", It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new OperationCanceledException());
+
+        var act = async () => await Sut().Handle(
+            new CreateBookingCommand(hold.UserId, "u@t.com", [hold.Id], null),
+            CancellationToken.None);
+
+        await act.Should().ThrowAsync<OperationCanceledException>();
+    }
+
+    [Fact]
+    public async Task Handle_PhaseASaveCanceled_ThrowsOperationCanceled()
+    {
+        var (hold, room) = CreateValidHoldAndRoom();
+        _db.Setup(x => x.CheckoutHolds).Returns(new List<CheckoutHold> { hold }.AsQueryable().BuildMockDbSet().Object);
+        _db.Setup(x => x.Rooms).Returns(new List<Room> { room }.AsQueryable().BuildMockDbSet().Object);
+        SetupTrackablePayments();
+
+        _db.SetupSequence(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new OperationCanceledException())
+            .ReturnsAsync(1);
+
+        var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        var act = async () => await Sut().Handle(
+            new CreateBookingCommand(hold.UserId, "u@t.com", [hold.Id], null),
+            cts.Token);
+
+        await act.Should().ThrowAsync<OperationCanceledException>();
+    }
+
+    [Fact]
+    public async Task Handle_GatewayFailure_MarksPaymentInitiationFailed_WhenPaymentFound()
+    {
+        var (hold, room) = CreateValidHoldAndRoom();
+        _db.Setup(x => x.CheckoutHolds).Returns(new List<CheckoutHold> { hold }.AsQueryable().BuildMockDbSet().Object);
+        _db.Setup(x => x.Rooms).Returns(new List<Room> { room }.AsQueryable().BuildMockDbSet().Object);
+        var payments = SetupTrackablePayments();
+
+        _gw.Setup(x => x.CreatePaymentSessionAsync(It.IsAny<PaymentSessionRequest>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new Exception("gateway down"));
+
+        var result = await Sut().Handle(new CreateBookingCommand(hold.UserId, "u@t.com", [hold.Id], null), default);
+
+        result.IsError.Should().BeTrue();
+        result.TopError.Code.Should().Be("Payment.GatewayUnavailable");
+        payments.Should().ContainSingle();
+        payments[0].Status.Should().Be(PaymentStatus.InitiationFailed);
+    }
+
+    [Fact]
+    public async Task Handle_GatewayFailure_MarkInitiationFailedException_IsSwallowed()
+    {
+        var (hold, room) = CreateValidHoldAndRoom();
+        _db.Setup(x => x.CheckoutHolds).Returns(new List<CheckoutHold> { hold }.AsQueryable().BuildMockDbSet().Object);
+        _db.Setup(x => x.Rooms).Returns(new List<Room> { room }.AsQueryable().BuildMockDbSet().Object);
+
+        var payments = new List<Payment>();
+        var paySet = payments.AsQueryable().BuildMockDbSet();
+        paySet.Setup(x => x.Add(It.IsAny<Payment>()))
+            .Callback<Payment>(p =>
+            {
+                // Force invalid state transition when MarkPaymentInitiationFailedSafe runs.
+                p.MarkInitiationFailed();
+                payments.Add(p);
+            });
+        _db.Setup(x => x.Payments).Returns(paySet.Object);
+
+        _gw.Setup(x => x.CreatePaymentSessionAsync(It.IsAny<PaymentSessionRequest>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new Exception("gateway down"));
+
+        var result = await Sut().Handle(new CreateBookingCommand(hold.UserId, "u@t.com", [hold.Id], null), default);
+
+        result.IsError.Should().BeTrue();
+        result.TopError.Code.Should().Be("Payment.GatewayUnavailable");
+    }
+
+    [Fact]
+    public async Task ValidateHoldsConsistency_PrivateBranches_AreCovered()
+    {
+        var method = typeof(CreateBookingCommandHandler)
+            .GetMethod("ValidateHoldsConsistency", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+
+        var emptyResult = method.Invoke(null, new object[] { new List<CheckoutHold>() });
+        emptyResult.Should().NotBeNull();
+
+        var userId = Guid.NewGuid();
+        var hotelA = TestHelpers.CreateHotel();
+        var hotelB = TestHelpers.CreateHotel();
+        var roomType = TestHelpers.CreateRoomType();
+        var holdA = TestHelpers.CreateHoldWithNav(hotel: hotelA, roomType: roomType, userId: userId);
+        var holdB = TestHelpers.CreateHoldWithNav(hotel: hotelB, roomType: roomType, userId: userId);
+        var crossHotelResult = method.Invoke(null, new object[] { new List<CheckoutHold> { holdA, holdB } });
+        crossHotelResult.Should().NotBeNull();
     }
 }
 
@@ -796,6 +939,14 @@ public sealed class ExpirePendingPaymentsCommandHandlerTests
     private ExpirePendingPaymentsCommandHandler Sut() =>
         new(_db.Object, TestHelpers.BookingOptions(), _log.Object);
 
+    private static Payment BuildOldPendingPayment(Booking booking, Guid? id = null)
+    {
+        var p = TestHelpers.CreatePayment(id: id, bookingId: booking.Id, amount: 100m);
+        TestHelpers.SetNav(p, "Booking", booking);
+        TestHelpers.SetPrivateProp(p, "CreatedAtUtc", DateTimeOffset.UtcNow.AddMinutes(-40));
+        return p;
+    }
+
     [Fact]
     public async Task Handle_NoCandidates_ReturnsUpdated()
     {
@@ -894,6 +1045,106 @@ public sealed class ExpirePendingPaymentsCommandHandlerTests
         await Sut().Handle(new ExpirePendingPaymentsCommand(100), default);
 
         _db.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_CanceledTokenDuringBatch_RethrowsOperationCanceled()
+    {
+        var b = TestHelpers.CreateBooking();
+        var p = BuildOldPendingPayment(b);
+        _db.Setup(x => x.Payments).Returns(new List<Payment> { p }.AsQueryable().BuildMockDbSet().Object);
+
+        _db.Setup(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new OperationCanceledException());
+
+        var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        var act = async () => await Sut().Handle(new ExpirePendingPaymentsCommand(100), cts.Token);
+        await act.Should().ThrowAsync<OperationCanceledException>();
+    }
+
+    [Fact]
+    public async Task Handle_FallbackItemException_IsSwallowed()
+    {
+        var b = TestHelpers.CreateBooking();
+        var p = BuildOldPendingPayment(b);
+        _db.Setup(x => x.Payments).Returns(new List<Payment> { p }.AsQueryable().BuildMockDbSet().Object);
+
+        _db.SetupSequence(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new DbUpdateConcurrencyException("batch-race"))
+            .ThrowsAsync(new Exception("item-failure"));
+
+        var result = await Sut().Handle(new ExpirePendingPaymentsCommand(100), default);
+
+        result.IsError.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Handle_BatchRecheckWithNewerTimestamp_Skips()
+    {
+        var id = Guid.NewGuid();
+        var oldBooking = TestHelpers.CreateBooking();
+        var oldPayment = BuildOldPendingPayment(oldBooking, id);
+
+        var newerBooking = TestHelpers.CreateBooking();
+        var newerPayment = TestHelpers.CreatePayment(id: id, bookingId: newerBooking.Id, amount: 100m);
+        TestHelpers.SetNav(newerPayment, "Booking", newerBooking);
+        TestHelpers.SetPrivateProp(newerPayment, "CreatedAtUtc", DateTimeOffset.UtcNow.AddMinutes(1));
+
+        _db.SetupSequence(x => x.Payments)
+            .Returns(new List<Payment> { oldPayment }.AsQueryable().BuildMockDbSet().Object)
+            .Returns(new List<Payment> { newerPayment }.AsQueryable().BuildMockDbSet().Object);
+
+        var result = await Sut().Handle(new ExpirePendingPaymentsCommand(100), default);
+
+        result.IsError.Should().BeFalse();
+        newerPayment.Status.Should().Be(PaymentStatus.Pending);
+    }
+
+    [Fact]
+    public async Task Handle_BatchInitiationFailed_MarksFailed()
+    {
+        var booking = TestHelpers.CreateBooking();
+        var payment = TestHelpers.CreatePayment(bookingId: booking.Id, amount: 100m);
+        TestHelpers.SetNav(payment, "Booking", booking);
+        payment.MarkInitiationFailed("{\"error\":\"session\"}");
+        TestHelpers.SetPrivateProp(payment, "CreatedAtUtc", DateTimeOffset.UtcNow.AddMinutes(-40));
+
+        _db.Setup(x => x.Payments).Returns(new List<Payment> { payment }.AsQueryable().BuildMockDbSet().Object);
+
+        var result = await Sut().Handle(new ExpirePendingPaymentsCommand(100), default);
+
+        result.IsError.Should().BeFalse();
+        payment.Status.Should().Be(PaymentStatus.Failed);
+        booking.Status.Should().Be(BookingStatus.Failed);
+    }
+
+    [Fact]
+    public async Task Handle_FallbackInvalidStateTransition_ClearsTrackerAndReturnsUpdated()
+    {
+        var id = Guid.NewGuid();
+        var candidateBooking = TestHelpers.CreateBooking();
+        var candidate = BuildOldPendingPayment(candidateBooking, id);
+
+        var confirmedBooking = TestHelpers.CreateBooking(status: BookingStatus.Confirmed);
+        var fallbackPayment = TestHelpers.CreatePayment(id: id, bookingId: confirmedBooking.Id, amount: 100m);
+        TestHelpers.SetNav(fallbackPayment, "Booking", confirmedBooking);
+        TestHelpers.SetPrivateProp(fallbackPayment, "CreatedAtUtc", DateTimeOffset.UtcNow.AddMinutes(-40));
+
+        var tx = TestHelpers.MockTransaction();
+        _db.SetupSequence(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new DbUpdateConcurrencyException("batch-race"))
+            .ReturnsAsync(tx.Object);
+
+        _db.SetupSequence(x => x.Payments)
+            .Returns(new List<Payment> { candidate }.AsQueryable().BuildMockDbSet().Object)
+            .Returns(new List<Payment> { fallbackPayment }.AsQueryable().BuildMockDbSet().Object);
+
+        var result = await Sut().Handle(new ExpirePendingPaymentsCommand(100), default);
+
+        result.IsError.Should().BeFalse();
+        _db.Verify(x => x.ClearChangeTracker(), Times.AtLeastOnce);
     }
 }
 

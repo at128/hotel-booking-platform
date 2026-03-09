@@ -1,0 +1,148 @@
+﻿3cdc195 test: expand checkout, cart, admin, and coverage scenarios
+4cb4bc0 refactor(application): unify room availability calculations
+8cd5b92 refactor(api): centralize authenticated user id extraction
+da18613 test(home): isolate cache state across integration tests
+269539d chore(ci): remove CD workflows and align README
+446a2c2 Update Readme to match the project
+c2eefc6 chore(ci): disable cd by default and keep manual deployment templates
+56c97fb feat(ops): harden prod secrets and define monitoring alerts runbook
+6b44dba test(cancellation): align refund window tests with payment timestamp policy
+3c6bc09 feat(monitoring): add secured seq stack and admin-only health access
+e051a16 fix(cart): enforce availability checks on quantity updates
+7db0766 fix(cart): enforce quantity bounds on cart item updates
+3711cd7 fix(reviews): recalculate hotel review summary after update/delete
+293f5b3 fix(reviews): enforce hotel-scoped update/delete and validate commands
+b3717e9 fix(search): enforce practical bounds on search filters
+24da62c fix(auth): harden refresh cookie settings options validation
+d7d9ccb fix(payment): harden checkout payment URL template validation
+c79d220 refactor(authz): replace hardcoded admin role literals with shared constant
+bc451c9 fix(checkout): validate hold/booking notes length before persistence
+fc1da57 fix(auth): clear stale refresh cookie on invalid refresh token paths
+4d393f3 feat(rate-limit): return Retry-After and structured 429 payload
+3af71fa fix(cancellation): base free-window timing on successful payment timestamp
+958e368 fix(auth): revoke all refresh sessions after password change
+fda6556 chore(config): keep admin bootstrap secrets out of appsettings
+d4a8b7f feat(identity): add configurable first-admin bootstrap service
+766e020 feat(rate-limit): add realistic per-endpoint policies with checkout hardening
+5fcc1db hardening(webhooks): add dedicated rate limiting and payload size cap
+065506d chore(gitignore): ignore generated hotel images and merged coverage artifacts
+69f5fe3 test(api): add integration suite and align docker-compose setup
+4643a40 test(application): expand missing-handler coverage and add coverlet
+ba8a2e0 fix(search): tighten query validation and elastic field mapping
+2f91724 fix(home): invalidate cached home sections and optimize trending query
+1d3cc78 fix(checkout): reduce booking number collisions and harden expiry flow
+80ca51a feat(api): enable configurable rate limiting and forwarded headers
+0f2bbeb feat(auth): add change-password endpoint and identity flow
+83e3372 Add Change password feat
+5d0f710 Add Embedding-service for generating vectors for searching and some packges adding
+1e79ef0 Add Elastic search for searching services
+cd95f21 fix: add unique constraints for city name+country, room number per hotel, review per booking
+799eb78 perf: add database indexes for search, bookings, visits; add search date validation
+53138d6 feat(checkout): enrich CreateBookingResponse with hotel details, rooms, and dates
+cb7ad57 fix: cascade soft-delete on hotel children, guard room deletion with active bookings
+3691a67 feat(admin): add payments listing endpoint with status/booking filters
+d41d450 feat(admin): add hotel-service linking/unlinking endpoints
+adbd345 feat(reviews): add update and soft-delete for reviews with owner/admin authorization
+9baa022 feat(admin): add Image management - delete, update caption/order, set thumbnail
+fcacde7 feat(admin): add FeaturedDeal CRUD - create, update, delete, list with pagination and search
+98cab52 chore(api): disable Swagger in production while keeping it enabled for development
+bf04802 feat(admin): add full CRUD support for hotel room types
+c9ecd2b feat(admin): add full CRUD support for hotel room types
+e20016c feat(admin): add hotel room type query handlers for list and details
+219be07 feat(admin): add create hotel room type command and validation
+1ea62af fix(api): return domain errors correctly from create review endpoint
+17d828f test(cart): update add-to-cart tests for availability and occupancy checks
+c7608ef Add Check in Add to cart handler
+cb7f89c - store MaxOccupancy on HotelRoomType - expose occupancy in hotel details and room availability - enforce occupancy when adding items to cart - persist Adults/Children on CartItem - update tests and migrations
+03097f6 feat(persistence): add MaxOccupancy column and mapping for hotel room types
+3569872 fix(validation): validate Adults and Children ranges in hotel search
+69d6d7e Cleaning the project
+c01e7a2 fix(admin-rooms): allow reusing room numbers after soft delete with filtered unique index
+134e481 feat(reviews): add paginated hotel reviews endpoint
+7ea114a fix(email): replace hardcoded dollar sign with booking currency formatting
+6d0af6d refactor(api): remove duplicate registrations and middleware calls from dependency injection
+cc90caa feat(Reviews): some modifications feat(home): include thumbnail image in trending cities response
+a402ae9 Adding unit tests for application and domain layers
+95ab73e fix(search): apply default guest and date values server-side
+c757f84 fix(home): cap featured deals response to five items
+05b9a49 fix(checkout): reject checkout holds for carts containing multiple hotels
+b856edd feat(search): add room type filtering to hotel search
+6ef97f6 feat(search): support searching hotels by hotel name or city
+229edb0 fix(admin-hotels): allow deleting hotels when only inactive bookings exist
+8597516 refactor(admin-rooms): move room handlers and queries to physical room entity
+f05aab9 refactor(admin-rooms): update controller to use physical room create and update contracts
+c54d98f fix(email): validate SMTP settings on startup and remove duplicate email service registration
+b7bcba6 Fix RefreshToken rotate
+cb45e7e Some refactoring and improvements
+2f15073 Add cd pipeline
+95e0a6d nothing updated
+2892e26 feat(reviews): add hotel review creation endpoint and persistence flow
+ed014b3 feat(admin): harden hotel image upload with signature validation, re-encoding, limits, and rate limiting
+b93d3e0 feat(admin): harden hotel image upload with signature validation, re-encoding, limits, and rate limiting
+35c47d1 feat(infra): add Polly retry and circuit breaker around Stripe gateway operations
+be546b9 feat(infra): add Polly retry and circuit breaker around Stripe gateway operations
+aa5b354 fix(email): include booked room details in payment success confirmation email
+51dfd01 refactor(search): enable AsSplitQuery via EF Core relational package
+2704a83 refactor(contracts): introduce PaginatedResponse and use it for my bookings
+347734b feat(bookings): add cancel booking refund flow and user bookings list
+68e63d4 feat(admin/services): add admin services CRUD
+40644cf feat(admin/roomtypes): add admin room types CRUD
+f0dcb52 feat(admin/roomtypes): add admin room types CRUD
+cba0b47 Change namespace from command to command and from query to queries
+43575b9 feat(admin/rooms): add admin rooms CRUD
+e6840aa feat(admin/rooms): add admin room contracts
+4301b0a feat(admin/hotels): add admin hotels CRUD controller
+9fab90d feat(admin/hotels): add UpdateHotelCommand with FluentValidation
+8f4582d feat(admin/hotels): add CreateHotelCommand with FluentValidation
+2ce062a feat(admin/hotels): add GetHotelByIdQuery and admin hotel errors
+6e79653 feat(admin/hotels): add GetHotelsQuery with search + pagination
+61b6bdc feat(admin/hotels): add admin hotel contracts
+c2cf5cb Adding GetCityBy Id and its endpoint
+115842a feat(admin/cities): add admin cities CRUD controller
+6abbc43 feat(admin/cities): add DeleteCityCommand with soft-delete guard
+55014a7 feat(admin/cities): add UpdateCityCommand with FluentValidation
+39f672c feat(admin/cities): add duplicate city conflict handling
+5777992 feat(admin/cities): add GetCitiesQuery with search + pagination
+bf82986 feat(admin/cities): add admin city contracts
+7f58221 refactor(webhook): move confirmation email send outside state transition try-catch
+4b3cba3 feat(bookings): store user email snapshot and send confirmation email on payment success
+1132e0f feat(bookings): store user email snapshot on booking
+ee066e2 feat(email): add smtp email service and infrastructure registration
+7790deb Create GetBooking feature with its endpoint
+0230a61 feat(bookings): add BookingDetailsResponse contract
+237a135 fix(webhook): remove duplicate OperationCanceledException catch
+878d8e9 Merge pull request #16 from at128/fix/payments-expire-pending-bookings-job
+a7d47ed fix(stripe): handle malformed webhook payload parse errors beyond StripeException
+5a6ecdd fix(stripe): use integer minor units for checkout session line item amount
+3bc6424 fix(payments): clear change tracker before expirer fallback after batch concurrency conflict
+84611f6 fix(validation): stop hold id rule evaluation before count check on null
+5e623f0 fix(checkout): round booking monetary totals to cents before persisting and charging
+ad9a31c fix(checkout): compensate provider session when Phase C payment linkage persistence fails
+36e5187 chore(db): add migration for payments rowversion concurrency token
+bc5b2ad Fix Missing Status
+348165c Refactor room availability calculation logic
+9671217 Merge branch 'dev' into fix/payments-expire-pending-bookings-job
+1d2433a feat(payments): add background job to expire unpaid pending bookings
+69c1374 fix(stripe): add payment intent failure mapping and idempotent checkout session creation
+c0112e9 fix(payments): harden webhook processing for fallback lookup and duplicate transitions
+d0260af fix(api): acknowledge valid Stripe webhooks and log handler failures
+c2f0846 refactor(checkout): use nullable-safe pattern for hold validation error handling
+fe42400 feat(payments): add InitiationFailed state and transition for payment session creation failures
+dbc2ba2 Refactoring CreateBookingCommandHandler and  avoid error logging for cancelled create-booking requests
+d22c249 Some simple Fixes
+f2fabf9 fix(cart): handle AddToCart concurrency races for insert and quantity updates
+daae411 fix(events): handle concurrent hotel visit insert race gracefully
+c50a28d refactor(room): use RoomStatus enum across domain and hold availability logic
+d282803 chore(db): remove duplicate hotel visit index and add cleanup migration
+1824505 fix(search): return validation error for invalid pagination cursor
+1b1c4fb refactor(settings): seal JwtSettings
+ea73cc1 security(api): add HSTS header in production middleware
+75e7571 fix(api): allow unauthenticated readiness health probe
+f7aeee7 refactore GetRoomAvailabilityQueryHandler
+a5781b8 refactor(search): simplify cursor generation and keep handler compile-safe
+5164613 refactor(domain): minor cleanup in cancellation entity
+81560b4 feat(api): add checkout and payment webhook endpoints
+254bdbf feat(checkout): add booking creation and payment webhook handlers
+ab80553 feat(payments): persist provider session and payment metadata
+2f3a6f9 feat(payments): add stripe gateway adapter and payment abstractions
+e906654 refactor(settings): move application settings and update consumers
