@@ -12,7 +12,6 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
-using System.Security.Claims;
 
 namespace HotelBooking.Api.Controllers;
 
@@ -60,8 +59,7 @@ public sealed class AuthController(ISender sender) : ApiController
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> GetProfile(CancellationToken ct)
     {
-        var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
-        if (!Guid.TryParse(userIdStr, out var userId))
+        if (!TryGetUserId(out var userId))
             return Unauthorized();
 
         var result = await sender.Send(new GetProfileQuery(userId), ct);
@@ -78,9 +76,11 @@ public sealed class AuthController(ISender sender) : ApiController
     public async Task<IActionResult> UpdateProfile(
         [FromBody] UpdateProfileRequest request, CancellationToken ct)
     {
-        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+        if (!TryGetUserId(out var userId))
+            return Unauthorized();
+
         var result = await sender.Send(new UpdateProfileCommand(
-            userId, request.FirstName, request.LastName, request.PhoneNumber), ct);
+            userId.ToString(), request.FirstName, request.LastName, request.PhoneNumber), ct);
 
         return result.Match(Ok, Problem);
     }
@@ -97,8 +97,7 @@ public sealed class AuthController(ISender sender) : ApiController
         [FromBody] ChangePasswordRequest request,
         CancellationToken ct)
     {
-        var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
-        if (!Guid.TryParse(userIdStr, out var userId))
+        if (!TryGetUserId(out var userId))
             return Unauthorized();
 
         var result = await sender.Send(new ChangePasswordCommand(
@@ -122,22 +121,18 @@ public sealed class AuthController(ISender sender) : ApiController
         return result.Match(Ok, Problem);
     }
 
-
     [Authorize]
     [EnableRateLimiting("user-write")]
     [HttpPost("logout")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Logout(CancellationToken ct)
     {
-        var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
-        if (!Guid.TryParse(userIdStr, out var userId))
+        if (!TryGetUserId(out var userId))
             return Unauthorized();
 
         await sender.Send(new LogoutCurrentSessionCommand(userId), ct);
         return NoContent();
     }
-
-
 
     [Authorize]
     [EnableRateLimiting("user-write")]
@@ -145,12 +140,10 @@ public sealed class AuthController(ISender sender) : ApiController
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> LogoutAllSessions(CancellationToken ct)
     {
-        var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
-        if (!Guid.TryParse(userIdStr, out var userId))
+        if (!TryGetUserId(out var userId))
             return Unauthorized();
 
         await sender.Send(new LogoutAllSessionsCommand(userId), ct);
         return NoContent();
     }
-
 }

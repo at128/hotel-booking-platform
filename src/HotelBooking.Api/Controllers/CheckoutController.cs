@@ -1,6 +1,5 @@
-﻿using HotelBooking.Application.Features.Checkout.Commands.CreateBooking;
+using HotelBooking.Application.Features.Checkout.Commands.CreateBooking;
 using HotelBooking.Application.Features.Checkout.Commands.CreateCheckoutHold;
-using HotelBooking.Application.Common.Interfaces;
 using HotelBooking.Contracts.Checkout;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -11,7 +10,7 @@ using System.Security.Claims;
 namespace HotelBooking.Api.Controllers;
 
 [Authorize]
-public sealed class CheckoutController(ISender sender, IUser currentUser) : ApiController
+public sealed class CheckoutController(ISender sender) : ApiController
 {
     /// <summary>
     /// Step 1: Create a checkout hold from the user's cart.
@@ -25,7 +24,7 @@ public sealed class CheckoutController(ISender sender, IUser currentUser) : ApiC
     public async Task<IActionResult> CreateHold(
         [FromBody] CreateHoldRequest request, CancellationToken ct)
     {
-        if (!Guid.TryParse(currentUser.Id, out var userId))
+        if (!TryGetUserId(out var userId))
             return Unauthorized();
 
         var result = await sender.Send(
@@ -47,7 +46,7 @@ public sealed class CheckoutController(ISender sender, IUser currentUser) : ApiC
     public async Task<IActionResult> CreateBooking(
         [FromBody] CreateBookingRequest request, CancellationToken ct)
     {
-        if (!Guid.TryParse(currentUser.Id, out var userId))
+        if (!TryGetUserId(out var userId))
             return Unauthorized();
 
         var email = User.FindFirstValue(ClaimTypes.Email) ?? string.Empty;
@@ -65,4 +64,3 @@ public sealed class CheckoutController(ISender sender, IUser currentUser) : ApiC
             Problem);
     }
 }
-

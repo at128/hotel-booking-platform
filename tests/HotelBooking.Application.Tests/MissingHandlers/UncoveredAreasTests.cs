@@ -1,7 +1,9 @@
 using FluentAssertions;
 using FluentValidation.TestHelper;
+using HotelBooking.Application.Common.Errors;
 using HotelBooking.Application.Common.Interfaces;
 using HotelBooking.Application.Common.Models;
+using HotelBooking.Application.Common.Models.Payment;
 using HotelBooking.Application.Features.Admin.FeaturedDeals.Commands.CreateFeaturedDeal;
 using HotelBooking.Application.Features.Admin.FeaturedDeals.Commands.DeleteFeaturedDeal;
 using HotelBooking.Application.Features.Admin.FeaturedDeals.Commands.UpdateFeaturedDeal;
@@ -15,6 +17,8 @@ using HotelBooking.Application.Features.Admin.Payments.Queries.GetAdminPayments;
 using HotelBooking.Application.Features.Admin.Rooms.Quries.GetRoomById;
 using HotelBooking.Application.Features.Admin.RoomTypes.Queries.GetRoomTypeById;
 using HotelBooking.Application.Features.Admin.Services.Queries.GetServiceById;
+using HotelBooking.Application.Features.Events.Commands.TrackHotelView;
+using HotelBooking.Application.Features.Reviews.Commands.CreateHotelReview;
 using HotelBooking.Application.Features.Reviews.Commands.DeleteReview;
 using HotelBooking.Application.Features.Reviews.Commands.UpdateReview;
 using HotelBooking.Application.Tests._Shared;
@@ -361,7 +365,8 @@ public sealed class RecordAndModelCoverageTests
     {
         var hold = new ActiveHoldDto(Guid.NewGuid(), Guid.NewGuid(), "Deluxe", 2, DateTimeOffset.UtcNow.AddMinutes(15));
         var roomItem = new BookingRoomEmailItem("Deluxe", "101", 120m, "USD");
-        var request = new HotelSearchRequest("q", "city", null, null, null, 2, 0, 1, null, null, null, null, null, null, 20);
+        var request = new HotelSearchRequest("q", "city", Guid.NewGuid(), DateOnly.FromDateTime(DateTime.UtcNow.AddDays(1)),
+            DateOnly.FromDateTime(DateTime.UtcNow.AddDays(2)), 2, 1, 1, 100m, 400m, 4, new List<string> { "Spa" }, "rating_desc", "cursor", 20);
         var doc = new HotelSearchDocument
         {
             Id = Guid.NewGuid(),
@@ -369,17 +374,214 @@ public sealed class RecordAndModelCoverageTests
             CityName = "City",
             Country = "Country",
             CityId = Guid.NewGuid(),
+            Description = "Desc",
             Owner = "Owner",
             StarRating = 4,
+            MinPricePerNight = 100m,
+            AverageRating = 4.2,
+            ReviewCount = 11,
+            ThumbnailUrl = "thumb.jpg",
             Amenities = ["Wifi"],
-            RoomTypes = [new RoomTypeInfo(Guid.NewGuid(), "Deluxe", 100m, 2, 1, 4)]
+            RoomTypes = [new RoomTypeInfo(Guid.NewGuid(), "Deluxe", 100m, 2, 1, 4)],
+            SearchableText = "Hotel City Desc Wifi",
+            Embedding = [0.1f, 0.2f]
         };
+
+        var roomTypeInfo = doc.RoomTypes[0];
+        var emailData = new BookingConfirmationEmailData(
+            "BK-1",
+            "Hotel",
+            "Address",
+            DateOnly.FromDateTime(DateTime.UtcNow.AddDays(3)),
+            DateOnly.FromDateTime(DateTime.UtcNow.AddDays(5)),
+            2,
+            250m,
+            "USD",
+            "txn_1",
+            new List<BookingRoomEmailItem> { roomItem });
+
+        var paymentReq = new PaymentSessionRequest(
+            Guid.NewGuid(),
+            "BK-2",
+            300m,
+            "u@test.com",
+            "Hotel",
+            DateOnly.FromDateTime(DateTime.UtcNow.AddDays(6)),
+            DateOnly.FromDateTime(DateTime.UtcNow.AddDays(8)),
+            "https://ok",
+            "https://cancel");
+
         var list = new PaginatedList<int> { PageNumber = 1, PageSize = 10, TotalCount = 1, TotalPages = 1, Items = [1] };
 
+        hold.Id.Should().NotBe(Guid.Empty);
+        hold.HotelRoomTypeId.Should().NotBe(Guid.Empty);
+        hold.Quantity.Should().Be(2);
+        hold.ExpiresAtUtc.Should().BeAfter(DateTimeOffset.UtcNow.AddMinutes(10));
         hold.RoomTypeName.Should().Be("Deluxe");
+
+        roomItem.RoomTypeName.Should().Be("Deluxe");
         roomItem.RoomNumber.Should().Be("101");
+        roomItem.PricePerNight.Should().Be(120m);
+        roomItem.Currency.Should().Be("USD");
+
+        request.Query.Should().Be("q");
+        request.City.Should().Be("city");
+        request.RoomTypeId.Should().NotBeNull();
+        request.CheckIn.Should().NotBeNull();
+        request.CheckOut.Should().NotBeNull();
+        request.Adults.Should().Be(2);
+        request.Children.Should().Be(1);
+        request.NumberOfRooms.Should().Be(1);
+        request.MinPrice.Should().Be(100m);
+        request.MaxPrice.Should().Be(400m);
+        request.MinStarRating.Should().Be(4);
+        request.Amenities.Should().ContainSingle("Spa");
+        request.SortBy.Should().Be("rating_desc");
+        request.Cursor.Should().Be("cursor");
         request.Limit.Should().Be(20);
+
+        doc.Id.Should().NotBe(Guid.Empty);
+        doc.Name.Should().Be("Hotel");
+        doc.CityName.Should().Be("City");
+        doc.Country.Should().Be("Country");
+        doc.CityId.Should().NotBe(Guid.Empty);
+        doc.Description.Should().Be("Desc");
+        doc.Owner.Should().Be("Owner");
+        doc.StarRating.Should().Be(4);
+        doc.MinPricePerNight.Should().Be(100m);
+        doc.AverageRating.Should().Be(4.2);
+        doc.ReviewCount.Should().Be(11);
+        doc.ThumbnailUrl.Should().Be("thumb.jpg");
+        doc.Amenities.Should().Contain("Wifi");
+        roomTypeInfo.RoomTypeId.Should().NotBe(Guid.Empty);
+        roomTypeInfo.RoomTypeName.Should().Be("Deluxe");
+        roomTypeInfo.PricePerNight.Should().Be(100m);
+        roomTypeInfo.AdultCapacity.Should().Be(2);
+        roomTypeInfo.ChildCapacity.Should().Be(1);
+        roomTypeInfo.AvailableRoomCount.Should().Be(4);
+        doc.SearchableText.Should().Contain("Wifi");
+        doc.Embedding.Should().HaveCount(2);
+
+        emailData.BookingNumber.Should().Be("BK-1");
+        emailData.HotelName.Should().Be("Hotel");
+        emailData.HotelAddress.Should().Be("Address");
+        emailData.CheckIn.Should().BeBefore(emailData.CheckOut);
+        emailData.Nights.Should().Be(2);
+        emailData.TotalAmount.Should().Be(250m);
+        emailData.Currency.Should().Be("USD");
+        emailData.TransactionRef.Should().Be("txn_1");
+        emailData.Rooms.Should().ContainSingle();
+
+        paymentReq.BookingId.Should().NotBe(Guid.Empty);
+        paymentReq.BookingNumber.Should().Be("BK-2");
+        paymentReq.AmountInUsd.Should().Be(300m);
+        paymentReq.CustomerEmail.Should().Be("u@test.com");
+        paymentReq.HotelName.Should().Be("Hotel");
+        paymentReq.CheckIn.Should().BeBefore(paymentReq.CheckOut);
+        paymentReq.SuccessUrl.Should().Contain("ok");
+        paymentReq.CancelUrl.Should().Contain("cancel");
+
         doc.RoomTypes.Should().HaveCount(1);
         list.Items.Should().ContainSingle();
+    }
+
+    [Fact]
+    public void ApplicationErrors_StaticMembers_AreReachable()
+    {
+        ApplicationErrors.Auth.EmailAlreadyRegistered.Code.Should().Be("Auth.EmailAlreadyRegistered");
+        ApplicationErrors.Auth.RegistrationFailed("x").Code.Should().Be("Auth.RegistrationFailed");
+        ApplicationErrors.Auth.PasswordChangeFailed("x").Code.Should().Be("Auth.PasswordChangeFailed");
+
+        ApplicationErrors.Cart.InvalidQuantity(5).Code.Should().Be("Cart.InvalidQuantity");
+        ApplicationErrors.Checkout.RoomUnavailable("Deluxe").Code.Should().Be("Checkout.RoomUnavailable");
+        ApplicationErrors.Payment.RoomNoLongerAvailable("Suite").Code.Should().Be("Payment.RoomNoLongerAvailable");
+        ApplicationErrors.Booking.AccessDenied.Code.Should().Be("Booking.AccessDenied");
+    }
+}
+
+public sealed class TrackHotelViewAndReviewCoverageTests
+{
+    private readonly Mock<IAppDbContext> _db = new();
+
+    [Fact]
+    public async Task TrackHotelView_ExistingVisitWithinWindow_NoUpdate()
+    {
+        var userId = Guid.NewGuid();
+        var hotel = TestHelpers.CreateHotel();
+        var visit = new HotelVisit(Guid.NewGuid(), userId, hotel.Id);
+        visit.UpdateVisitTime();
+
+        _db.Setup(x => x.Hotels).Returns(new List<Hotel> { hotel }.AsQueryable().BuildMockDbSet().Object);
+        _db.Setup(x => x.HotelVisits).Returns(new List<HotelVisit> { visit }.AsQueryable().BuildMockDbSet().Object);
+
+        var cache = new Mock<ICacheInvalidator>();
+        var sut = new TrackHotelViewCommandHandler(_db.Object, cache.Object);
+
+        var result = await sut.Handle(new TrackHotelViewCommand(userId, hotel.Id), default);
+
+        result.IsError.Should().BeFalse();
+        _db.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+        cache.Verify(x => x.RemoveAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task TrackHotelView_ExistingVisitOlderThanWindow_UpdatesAndInvalidatesCache()
+    {
+        var userId = Guid.NewGuid();
+        var hotel = TestHelpers.CreateHotel();
+        var visit = new HotelVisit(Guid.NewGuid(), userId, hotel.Id);
+        TestHelpers.SetPrivateProp(visit, nameof(HotelVisit.VisitedAtUtc), DateTimeOffset.UtcNow.AddMinutes(-10));
+
+        _db.Setup(x => x.Hotels).Returns(new List<Hotel> { hotel }.AsQueryable().BuildMockDbSet().Object);
+        _db.Setup(x => x.HotelVisits).Returns(new List<HotelVisit> { visit }.AsQueryable().BuildMockDbSet().Object);
+        _db.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+
+        var cache = new Mock<ICacheInvalidator>();
+        var sut = new TrackHotelViewCommandHandler(_db.Object, cache.Object);
+
+        var result = await sut.Handle(new TrackHotelViewCommand(userId, hotel.Id), default);
+
+        result.IsError.Should().BeFalse();
+        _db.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+        cache.Verify(x => x.RemoveAsync("home:trending-cities", It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task CreateHotelReview_Branches_AreCovered()
+    {
+        var userId = Guid.NewGuid();
+        var hotel = TestHelpers.CreateHotel();
+        var booking = TestHelpers.CreateBooking(userId: userId, hotelId: hotel.Id, status: BookingStatus.Confirmed);
+
+        _db.Setup(x => x.Bookings).Returns(new List<Booking> { booking }.AsQueryable().BuildMockDbSet().Object);
+        _db.Setup(x => x.Reviews).Returns(new List<Review>().AsQueryable().BuildMockDbSet().Object);
+        _db.Setup(x => x.Hotels).Returns(new List<Hotel> { hotel }.AsQueryable().BuildMockDbSet().Object);
+        _db.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+
+        var sut = new CreateHotelReviewCommandHandler(_db.Object);
+        var cmd = new CreateHotelReviewCommand(hotel.Id, booking.Id, userId, 5, " Great ", " Nice ");
+
+        var result = await sut.Handle(cmd, default);
+
+        result.IsError.Should().BeFalse();
+        result.Value.Title.Should().Be("Great");
+        result.Value.Comment.Should().Be("Nice");
+    }
+
+    [Fact]
+    public async Task CreateHotelReview_HotelMismatch_ReturnsValidation()
+    {
+        var userId = Guid.NewGuid();
+        var booking = TestHelpers.CreateBooking(userId: userId, hotelId: Guid.NewGuid(), status: BookingStatus.Confirmed);
+
+        _db.Setup(x => x.Bookings).Returns(new List<Booking> { booking }.AsQueryable().BuildMockDbSet().Object);
+        _db.Setup(x => x.Reviews).Returns(new List<Review>().AsQueryable().BuildMockDbSet().Object);
+
+        var sut = new CreateHotelReviewCommandHandler(_db.Object);
+        var result = await sut.Handle(
+            new CreateHotelReviewCommand(Guid.NewGuid(), booking.Id, userId, 4, null, null), default);
+
+        result.IsError.Should().BeTrue();
+        result.TopError.Code.Should().Be("Reviews.BookingHotelMismatch");
     }
 }

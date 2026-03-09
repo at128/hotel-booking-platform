@@ -221,6 +221,117 @@ public sealed class CreateBookingCommandHandlerTests
         result.IsError.Should().BeTrue();
         result.TopError.Code.Should().Be("Payment.GatewayUnavailable");
     }
+
+    [Fact]
+    public async Task Handle_HoldsWithDifferentDates_ReturnsHoldExpired()
+    {
+        var hotel = TestHelpers.CreateHotel();
+        var roomType = TestHelpers.CreateRoomType();
+        var hrt = TestHelpers.CreateHotelRoomTypeFor(hotel, roomType);
+
+        var h1 = TestHelpers.CreateHoldWithNav(hotel: hotel, roomType: roomType,
+            checkIn: new DateOnly(2026, 7, 1), checkOut: new DateOnly(2026, 7, 3));
+        var h2 = TestHelpers.CreateHoldWithNav(hotel: hotel, roomType: roomType,
+            checkIn: new DateOnly(2026, 7, 2), checkOut: new DateOnly(2026, 7, 4));
+
+        TestHelpers.SetNav(h1, "HotelRoomType", hrt);
+        TestHelpers.SetNav(h2, "HotelRoomType", hrt);
+
+        _db.Setup(x => x.CheckoutHolds).Returns(
+            new List<CheckoutHold> { h1, h2 }.AsQueryable().BuildMockDbSet().Object);
+
+        var cmd = new CreateBookingCommand(h1.UserId, "u@t.com", [h1.Id, h2.Id], null);
+        var result = await Sut().Handle(cmd, default);
+
+        result.IsError.Should().BeTrue();
+        result.TopError.Code.Should().Be("Checkout.HoldExpired");
+    }
+
+    [Fact]
+    public async Task Handle_HoldWithInvalidNights_ReturnsInvalidDates()
+    {
+        var hotel = TestHelpers.CreateHotel();
+        var hold = TestHelpers.CreateHoldWithNav(
+            hotel: hotel,
+            checkIn: new DateOnly(2026, 7, 1),
+            checkOut: new DateOnly(2026, 7, 1));
+
+        _db.Setup(x => x.CheckoutHolds).Returns(
+            new List<CheckoutHold> { hold }.AsQueryable().BuildMockDbSet().Object);
+
+        var result = await Sut().Handle(new CreateBookingCommand(hold.UserId, "u@t.com", [hold.Id], null), default);
+
+        result.IsError.Should().BeTrue();
+        result.TopError.Code.Should().Be("Cart.InvalidDates");
+    }
+
+    [Fact]
+    public async Task Handle_NoAssignableRooms_ReturnsRoomNoLongerAvailable()
+    {
+        var hotel = TestHelpers.CreateHotel();
+        var hold = TestHelpers.CreateHoldWithNav(hotel: hotel, pricePerNight: 100m);
+
+        _db.Setup(x => x.CheckoutHolds).Returns(
+            new List<CheckoutHold> { hold }.AsQueryable().BuildMockDbSet().Object);
+        _db.Setup(x => x.Rooms).Returns(
+            new List<Room>().AsQueryable().BuildMockDbSet().Object);
+
+        var result = await Sut().Handle(new CreateBookingCommand(hold.UserId, "u@t.com", [hold.Id], null), default);
+
+        result.IsError.Should().BeTrue();
+        result.TopError.Code.Should().Be("Payment.RoomNoLongerAvailable");
+    }
+
+    [Fact]
+    public async Task Handle_PhaseCFailure_ReturnsGatewayUnavailableAndCompensates()
+    {
+        var hotel = TestHelpers.CreateHotel();
+        var hold = TestHelpers.CreateHoldWithNav(hotel: hotel, pricePerNight: 100m);
+        var room = TestHelpers.CreateRoom(hotelRoomTypeId: hold.HotelRoomTypeId, hotelId: hotel.Id);
+
+        _db.Setup(x => x.CheckoutHolds).Returns(
+            new List<CheckoutHold> { hold }.AsQueryable().BuildMockDbSet().Object);
+        _db.Setup(x => x.Rooms).Returns(
+            new List<Room> { room }.AsQueryable().BuildMockDbSet().Object);
+
+        // Keep payments query empty so PersistPaymentSession throws "payment not found"
+        _db.Setup(x => x.Payments).Returns(new List<Payment>().AsQueryable().BuildMockDbSet().Object);
+
+        _gw.Setup(x => x.CreatePaymentSessionAsync(It.IsAny<PaymentSessionRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PaymentSessionResponse("sess-1", "https://pay"));
+        _gw.Setup(x => x.ExpirePaymentSessionAsync("sess-1", It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var result = await Sut().Handle(new CreateBookingCommand(hold.UserId, "u@t.com", [hold.Id], null), default);
+
+        result.IsError.Should().BeTrue();
+        result.TopError.Code.Should().Be("Payment.GatewayUnavailable");
+        _gw.Verify(x => x.ExpirePaymentSessionAsync("sess-1", It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_PhaseCFailure_CompensationAlsoFails_ReturnsGatewayUnavailable()
+    {
+        var hotel = TestHelpers.CreateHotel();
+        var hold = TestHelpers.CreateHoldWithNav(hotel: hotel, pricePerNight: 100m);
+        var room = TestHelpers.CreateRoom(hotelRoomTypeId: hold.HotelRoomTypeId, hotelId: hotel.Id);
+
+        _db.Setup(x => x.CheckoutHolds).Returns(
+            new List<CheckoutHold> { hold }.AsQueryable().BuildMockDbSet().Object);
+        _db.Setup(x => x.Rooms).Returns(
+            new List<Room> { room }.AsQueryable().BuildMockDbSet().Object);
+        _db.Setup(x => x.Payments).Returns(new List<Payment>().AsQueryable().BuildMockDbSet().Object);
+
+        _gw.Setup(x => x.CreatePaymentSessionAsync(It.IsAny<PaymentSessionRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PaymentSessionResponse("sess-2", "https://pay"));
+        _gw.Setup(x => x.ExpirePaymentSessionAsync("sess-2", It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new Exception("expire failed"));
+
+        var result = await Sut().Handle(new CreateBookingCommand(hold.UserId, "u@t.com", [hold.Id], null), default);
+
+        result.IsError.Should().BeTrue();
+        result.TopError.Code.Should().Be("Payment.GatewayUnavailable");
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

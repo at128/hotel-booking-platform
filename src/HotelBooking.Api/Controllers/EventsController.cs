@@ -1,4 +1,3 @@
-﻿using System.Security.Claims;
 using HotelBooking.Application.Features.Events.Commands.TrackHotelView;
 using HotelBooking.Application.Features.Events.Queries.GetRecentlyVisited;
 using HotelBooking.Contracts.Events;
@@ -19,8 +18,7 @@ public sealed class EventsController(ISender sender) : ApiController
     public async Task<IActionResult> TrackHotelView(
         [FromBody] TrackHotelViewRequest request, CancellationToken ct)
     {
-        var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrWhiteSpace(userIdStr) || !Guid.TryParse(userIdStr, out var userId))
+        if (!TryGetUserId(out var userId))
             return Unauthorized();
 
         var result = await sender.Send(new TrackHotelViewCommand(userId, request.HotelId), ct);
@@ -31,8 +29,7 @@ public sealed class EventsController(ISender sender) : ApiController
     [HttpGet("recently-visited")]
     public async Task<IActionResult> GetRecentlyVisited(CancellationToken ct)
     {
-        var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrWhiteSpace(userIdStr) || !Guid.TryParse(userIdStr, out var userId))
+        if (!TryGetUserId(out var userId))
             return Unauthorized();
 
         var result = await sender.Send(new GetRecentlyVisitedQuery(userId), ct);
