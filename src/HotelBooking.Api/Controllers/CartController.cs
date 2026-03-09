@@ -1,4 +1,4 @@
-﻿using HotelBooking.Application.Features.Cart.Commands.AddToCart;
+using HotelBooking.Application.Features.Cart.Commands.AddToCart;
 using HotelBooking.Application.Features.Cart.Commands.ClearCart;
 using HotelBooking.Application.Features.Cart.Commands.RemoveCartItem;
 using HotelBooking.Application.Features.Cart.Commands.UpdateCartItem;
@@ -8,8 +8,6 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
-using System.Security.Claims;
-
 
 namespace HotelBooking.Api.Controllers;
 
@@ -17,16 +15,15 @@ namespace HotelBooking.Api.Controllers;
 [EnableRateLimiting("user-read")]
 public sealed class CartController(ISender sender) : ApiController
 {
-
     /// <summary>Get the current user's cart.</summary>
     [HttpGet]
     [ProducesResponseType(typeof(CartResponse), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetCart(CancellationToken ct)
     {
-        var userId = GetUserId();
-        if (userId is null) return Unauthorized();
+        if (!TryGetUserId(out var userId))
+            return Unauthorized();
 
-        var result = await sender.Send(new GetCartQuery(userId.Value), ct);
+        var result = await sender.Send(new GetCartQuery(userId), ct);
         return result.Match(Ok, Problem);
     }
 
@@ -38,11 +35,11 @@ public sealed class CartController(ISender sender) : ApiController
     public async Task<IActionResult> AddToCart(
         [FromBody] AddToCartRequest request, CancellationToken ct)
     {
-        var userId = GetUserId();
-        if (userId is null) return Unauthorized();
+        if (!TryGetUserId(out var userId))
+            return Unauthorized();
 
         var result = await sender.Send(new AddToCartCommand(
-            userId.Value,
+            userId,
             request.HotelRoomTypeId,
             request.CheckIn,
             request.CheckOut,
@@ -65,11 +62,11 @@ public sealed class CartController(ISender sender) : ApiController
         [FromBody] UpdateCartItemRequest request,
         CancellationToken ct)
     {
-        var userId = GetUserId();
-        if (userId is null) return Unauthorized();
+        if (!TryGetUserId(out var userId))
+            return Unauthorized();
 
         var result = await sender.Send(
-            new UpdateCartItemCommand(userId.Value, itemId, request.Quantity), ct);
+            new UpdateCartItemCommand(userId, itemId, request.Quantity), ct);
 
         return result.Match(Ok, Problem);
     }
@@ -82,11 +79,11 @@ public sealed class CartController(ISender sender) : ApiController
     public async Task<IActionResult> RemoveCartItem(
         Guid itemId, CancellationToken ct)
     {
-        var userId = GetUserId();
-        if (userId is null) return Unauthorized();
+        if (!TryGetUserId(out var userId))
+            return Unauthorized();
 
         var result = await sender.Send(
-            new RemoveCartItemCommand(userId.Value, itemId), ct);
+            new RemoveCartItemCommand(userId, itemId), ct);
 
         return result.Match(_ => NoContent(), Problem);
     }
@@ -97,16 +94,10 @@ public sealed class CartController(ISender sender) : ApiController
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> ClearCart(CancellationToken ct)
     {
-        var userId = GetUserId();
-        if (userId is null) return Unauthorized();
+        if (!TryGetUserId(out var userId))
+            return Unauthorized();
 
-        var result = await sender.Send(new ClearCartCommand(userId.Value), ct);
+        var result = await sender.Send(new ClearCartCommand(userId), ct);
         return result.Match(_ => NoContent(), Problem);
-    }
-
-    private Guid? GetUserId()
-    {
-        var str = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        return Guid.TryParse(str, out var id) ? id : null;
     }
 }

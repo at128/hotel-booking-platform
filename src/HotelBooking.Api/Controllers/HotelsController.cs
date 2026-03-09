@@ -1,4 +1,4 @@
-﻿using HotelBooking.Api.Controllers;
+using HotelBooking.Api.Controllers;
 using HotelBooking.Application.Features.Hotels.Queries.GetHotelDetails;
 using HotelBooking.Application.Features.Hotels.Queries.GetHotelGallery;
 using HotelBooking.Application.Features.Hotels.Queries.GetRoomAvailability;
@@ -13,14 +13,12 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
-using System.Security.Claims;
 
 [ApiController]
 [Route("api/v{version:apiVersion}/hotels")]
 [EnableRateLimiting("public-read")]
 public sealed class HotelsController(ISender sender) : ApiController
 {
-
     [HttpGet("{id:guid}")]
     [ProducesResponseType(typeof(HotelDetailsDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -64,8 +62,7 @@ public sealed class HotelsController(ISender sender) : ApiController
         [FromBody] CreateHotelReviewRequest request,
         CancellationToken ct)
     {
-        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (!Guid.TryParse(userIdClaim, out var userId))
+        if (!TryGetUserId(out var userId))
             return Unauthorized();
 
         var result = await sender.Send(new CreateHotelReviewCommand(
@@ -89,26 +86,25 @@ public sealed class HotelsController(ISender sender) : ApiController
     [ProducesResponseType(typeof(HotelReviewsResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetHotelReviews(
-    Guid id,
-    [FromQuery] int page = 1,
-    [FromQuery] int pageSize = 10,
-    CancellationToken ct = default)
+        Guid id,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10,
+        CancellationToken ct = default)
     {
         var result = await sender.Send(new GetHotelReviewsQuery(id, page, pageSize), ct);
         return result.Match(Ok, Problem);
     }
 
-
     [Authorize]
     [EnableRateLimiting("user-write")]
     [HttpPut("{hotelId:guid}/reviews/{reviewId:guid}")]
     public async Task<IActionResult> UpdateReview(
-    Guid hotelId, Guid reviewId,
-    [FromBody] UpdateReviewRequest request,
-    CancellationToken ct)
+        Guid hotelId,
+        Guid reviewId,
+        [FromBody] UpdateReviewRequest request,
+        CancellationToken ct)
     {
-        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (!Guid.TryParse(userIdClaim, out var userId))
+        if (!TryGetUserId(out var userId))
             return Unauthorized();
 
         var result = await sender.Send(new UpdateReviewCommand(
@@ -123,8 +119,7 @@ public sealed class HotelsController(ISender sender) : ApiController
     public async Task<IActionResult> DeleteReview(
         Guid hotelId, Guid reviewId, CancellationToken ct)
     {
-        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (!Guid.TryParse(userIdClaim, out var userId))
+        if (!TryGetUserId(out var userId))
             return Unauthorized();
 
         var isAdmin = User.IsInRole(HotelBookingConstants.Roles.Admin);

@@ -1,7 +1,8 @@
-﻿using Asp.Versioning;
+using Asp.Versioning;
 using HotelBooking.Domain.Common.Results;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
+using System.Security.Claims;
 
 namespace HotelBooking.Api.Controllers;
 
@@ -11,6 +12,12 @@ namespace HotelBooking.Api.Controllers;
 
 public abstract class ApiController : ControllerBase
 {
+    protected bool TryGetUserId(out Guid userId)
+    {
+        var userIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        return Guid.TryParse(userIdValue, out userId);
+    }
+
     protected ActionResult Problem(List<Error> errors)
     {
         if (errors.Count == 0)

@@ -1,8 +1,6 @@
-﻿using HotelBooking.Application.Common.Interfaces;
 using HotelBooking.Application.Features.Checkout.Commands.CancelBooking;
 using HotelBooking.Application.Features.Checkout.Queries.GetBooking;
 using HotelBooking.Application.Features.Checkout.Queries.GetUserBookings;
-using HotelBooking.Contracts.Admin;
 using HotelBooking.Contracts.Checkout;
 using HotelBooking.Contracts.Common;
 using HotelBooking.Domain.Common.Constants;
@@ -15,7 +13,7 @@ namespace HotelBooking.Api.Controllers;
 
 [Authorize]
 [EnableRateLimiting("user-read")]
-public sealed class BookingsController(ISender sender, IUser currentUser) : ApiController
+public sealed class BookingsController(ISender sender) : ApiController
 {
     /// <summary>
     /// Retrieves booking details by ID.
@@ -28,7 +26,7 @@ public sealed class BookingsController(ISender sender, IUser currentUser) : ApiC
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetBooking(Guid id, CancellationToken ct)
     {
-        if (!Guid.TryParse(currentUser.Id, out var userId))
+        if (!TryGetUserId(out var userId))
             return Unauthorized();
 
         var isAdmin = User.IsInRole(HotelBookingConstants.Roles.Admin);
@@ -47,7 +45,7 @@ public sealed class BookingsController(ISender sender, IUser currentUser) : ApiC
         [FromQuery] int pageSize = 20,
         CancellationToken ct = default)
     {
-        if (!Guid.TryParse(currentUser.Id, out var userId))
+        if (!TryGetUserId(out var userId))
             return Unauthorized();
 
         var result = await sender.Send(
@@ -70,7 +68,7 @@ public sealed class BookingsController(ISender sender, IUser currentUser) : ApiC
         [FromBody] CancelBookingRequest request,
         CancellationToken ct)
     {
-        if (!Guid.TryParse(currentUser.Id, out var userId))
+        if (!TryGetUserId(out var userId))
             return Unauthorized();
 
         var result = await sender.Send(
@@ -83,5 +81,4 @@ public sealed class BookingsController(ISender sender, IUser currentUser) : ApiC
 
         return result.Match(Ok, Problem);
     }
-
 }
