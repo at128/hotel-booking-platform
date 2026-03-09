@@ -1,11 +1,9 @@
-﻿using HotelBooking.Application.Common.Interfaces;
+using HotelBooking.Application.Common.Availability;
+using HotelBooking.Application.Common.Interfaces;
 using HotelBooking.Contracts.Hotels;
-using HotelBooking.Domain.Bookings;
-using HotelBooking.Domain.Bookings.Enums;
 using HotelBooking.Domain.Common.Results;
 using HotelBooking.Domain.Hotels;
 using HotelBooking.Domain.Hotels.Enums;
-using HotelBooking.Domain.Rooms;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -35,10 +33,7 @@ public sealed class GetRoomAvailabilityQueryHandler(IAppDbContext context)
                 hrt.PricePerNight,
                 hrt.AdultCapacity,
                 hrt.ChildCapacity,
-                hrt.MaxOccupancy,
-                TotalRooms = hrt.Rooms.Count(r =>
-                    r.Status == RoomStatus.Available &&
-                    r.DeletedAtUtc == null)
+                hrt.MaxOccupancy
             })
             .ToListAsync(ct);
 
@@ -60,38 +55,18 @@ public sealed class GetRoomAvailabilityQueryHandler(IAppDbContext context)
             .GroupBy(x => x.EntityId)
             .ToDictionary(g => g.Key, g => g.Select(x => x.Url).ToList());
 
-        var bookedCounts = await context.Bookings
-            .AsNoTracking()
-            .Where(b => b.HotelId == q.HotelId
-                     && b.Status != BookingStatus.Cancelled
-                     && b.Status != BookingStatus.Failed
-                     && b.CheckIn < q.CheckOut
-                     && b.CheckOut > q.CheckIn)
-            .SelectMany(b => b.BookingRooms)
-            .GroupBy(br => br.HotelRoomTypeId)
-            .Select(g => new { HotelRoomTypeId = g.Key, Count = g.Count() })
-            .ToListAsync(ct);
-
-        var heldCounts = await context.CheckoutHolds
-            .AsNoTracking()
-            .Where(ch => ch.HotelId == q.HotelId
-                      && ch.IsReleased == false
-                      && ch.ExpiresAtUtc > now
-                      && ch.CheckIn < q.CheckOut
-                      && ch.CheckOut > q.CheckIn)
-            .GroupBy(ch => ch.HotelRoomTypeId)
-            .Select(g => new { HotelRoomTypeId = g.Key, Count = g.Sum(x => x.Quantity) })
-            .ToListAsync(ct);
-
-        var bookedByType = bookedCounts.ToDictionary(x => x.HotelRoomTypeId, x => x.Count);
-        var heldByType = heldCounts.ToDictionary(x => x.HotelRoomTypeId, x => x.Count);
+        var countsByType = await RoomAvailabilityCalculator.GetCountsByRoomTypeAsync(
+            context,
+            roomTypeIds,
+            q.CheckIn,
+            q.CheckOut,
+            now,
+            ct);
 
         var availability = roomTypes.Select(hrt =>
         {
-            var totalRooms = hrt.TotalRooms;
-            var booked = bookedByType.GetValueOrDefault(hrt.Id, 0);
-            var held = heldByType.GetValueOrDefault(hrt.Id, 0);
-            var available = Math.Max(0, totalRooms - booked - held);
+            var counts = countsByType.GetValueOrDefault(hrt.Id, RoomAvailabilityCounts.Empty);
+            var available = Math.Max(0, counts.AvailableRooms);
             var images = imagesByType.GetValueOrDefault(hrt.Id, new List<string>());
 
             return new RoomAvailabilityDto(
@@ -101,9 +76,9 @@ public sealed class GetRoomAvailabilityQueryHandler(IAppDbContext context)
                 hrt.AdultCapacity,
                 hrt.ChildCapacity,
                 hrt.MaxOccupancy,
-                totalRooms,
-                booked,
-                held,
+                counts.TotalRooms,
+                counts.BookedRooms,
+                counts.HeldRooms,
                 available,
                 images
             );

@@ -1,11 +1,10 @@
-﻿using HotelBooking.Application.Common.Errors;
+using HotelBooking.Application.Common.Availability;
+using HotelBooking.Application.Common.Errors;
 using HotelBooking.Application.Common.Interfaces;
 using HotelBooking.Contracts.Cart;
-using HotelBooking.Domain.Bookings.Enums;
 using HotelBooking.Domain.Cart;
 using HotelBooking.Domain.Common.Results;
 using HotelBooking.Domain.Hotels;
-using HotelBooking.Domain.Rooms;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -50,28 +49,13 @@ public sealed class AddToCartCommandHandler(IAppDbContext db)
                 return ApplicationErrors.Cart.DateMismatch;
         }
 
-        var totalRooms = await db.Rooms
-            .CountAsync(r =>
-                r.HotelRoomTypeId == cmd.HotelRoomTypeId &&
-                r.DeletedAtUtc == null &&
-                r.Status == RoomStatus.Available, ct);
-
-        var bookedRooms = await db.BookingRooms
-            .CountAsync(br =>
-                br.HotelRoomTypeId == cmd.HotelRoomTypeId &&
-                br.Booking.Status != BookingStatus.Cancelled &&
-                br.Booking.Status != BookingStatus.Failed &&
-                br.Booking.CheckIn < cmd.CheckOut &&
-                br.Booking.CheckOut > cmd.CheckIn, ct);
-
-        var heldRooms = await db.CheckoutHolds
-            .Where(ch =>
-                ch.HotelRoomTypeId == cmd.HotelRoomTypeId &&
-                !ch.IsReleased &&
-                ch.ExpiresAtUtc > DateTimeOffset.UtcNow &&
-                ch.CheckIn < cmd.CheckOut &&
-                ch.CheckOut > cmd.CheckIn)
-            .SumAsync(ch => (int?)ch.Quantity, ct) ?? 0;
+        var counts = await RoomAvailabilityCalculator.GetCountsAsync(
+            db,
+            cmd.HotelRoomTypeId,
+            cmd.CheckIn,
+            cmd.CheckOut,
+            DateTimeOffset.UtcNow,
+            ct);
 
         var existingCartQty = existingItems
             .Where(c =>
@@ -82,7 +66,7 @@ public sealed class AddToCartCommandHandler(IAppDbContext db)
                 c.Children == cmd.Children)
             .Sum(c => c.Quantity);
 
-        var available = totalRooms - bookedRooms - heldRooms - existingCartQty;
+        var available = counts.AvailableRooms - existingCartQty;
 
         if (available < cmd.Quantity)
             return ApplicationErrors.Cart.QuantityExceedsCapacity;
