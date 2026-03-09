@@ -148,6 +148,42 @@ public class CartTests
     }
 
     [Fact]
+    public async Task AddToCart_SameCriteria_MergesQuantity()
+    {
+        var (client, seed, _) = await SetupAsync();
+        var tomorrow = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(4));
+        var dayAfter = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(5));
+
+        var first = await client.PostAsJsonAsync("/api/v1/cart/items",
+            new AddToCartRequest(seed.HotelRoomType.Id, tomorrow, dayAfter, 1, 2, 0));
+        first.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var second = await client.PostAsJsonAsync("/api/v1/cart/items",
+            new AddToCartRequest(seed.HotelRoomType.Id, tomorrow, dayAfter, 1, 2, 0));
+        second.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var cartRes = await client.GetAsync("/api/v1/cart");
+        cartRes.StatusCode.Should().Be(HttpStatusCode.OK);
+        var cart = await cartRes.ReadJsonAsync<CartResponse>();
+        cart.Should().NotBeNull();
+        cart!.Items.Should().ContainSingle();
+        cart.Items[0].Quantity.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task AddToCart_InvalidGuests_Returns400()
+    {
+        var (client, seed, _) = await SetupAsync();
+        var tomorrow = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(6));
+        var dayAfter = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(7));
+
+        var response = await client.PostAsJsonAsync("/api/v1/cart/items",
+            new AddToCartRequest(seed.HotelRoomType.Id, tomorrow, dayAfter, 1, 0, -1));
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
     public async Task GetCart_WithItems_ReturnsCartResponseWithPricing()
     {
         var (client, seed, _) = await SetupAsync();

@@ -16,6 +16,7 @@ using HotelBooking.Application.Tests._Shared;
 using HotelBooking.Domain.Hotels;
 using HotelBooking.Domain.Rooms;
 using HotelBooking.Domain.Services;
+using Microsoft.EntityFrameworkCore;
 using MockQueryable.Moq;
 using Moq;
 using Xunit;
@@ -119,6 +120,20 @@ namespace HotelBooking.Application.Tests.Admin.RoomTypes
             result.IsError.Should().BeTrue();
             result.TopError.Code.Should().Be(AdminErrors.RoomTypes.AlreadyExists.Code);
         }
+
+        [Fact]
+        public async Task Handle_DbUniqueViolation_ReturnsAlreadyExists()
+        {
+            _db.Setup(x => x.RoomTypes).Returns(new List<RoomType>().AsQueryable().BuildMockDbSet().Object);
+            _db.Setup(x => x.SaveChangesAsync(default))
+                .ThrowsAsync(new DbUpdateException("room_types unique", new Exception("IX_room_types_Name")));
+
+            var result = await new CreateRoomTypeCommandHandler(_db.Object)
+                .Handle(new CreateRoomTypeCommand(" Deluxe ", "  Desc  "), default);
+
+            result.IsError.Should().BeTrue();
+            result.TopError.Code.Should().Be(AdminErrors.RoomTypes.AlreadyExists.Code);
+        }
     }
 
     public class DeleteRoomTypeCommandHandlerTests
@@ -213,6 +228,22 @@ namespace HotelBooking.Application.Tests.Admin.RoomTypes
             result.IsError.Should().BeTrue();
             result.TopError.Code.Should().Be(AdminErrors.RoomTypes.AlreadyExists.Code);
         }
+
+        [Fact]
+        public async Task Handle_DbUniqueViolation_ReturnsAlreadyExists()
+        {
+            var rtId = Guid.NewGuid();
+            var rt = TestHelpers.CreateRoomType(id: rtId, name: "Suite");
+            _db.Setup(x => x.RoomTypes).Returns(new List<RoomType> { rt }.AsQueryable().BuildMockDbSet().Object);
+            _db.Setup(x => x.SaveChangesAsync(default))
+                .ThrowsAsync(new DbUpdateException("room_types unique", new Exception("IX_room_types_Name")));
+
+            var result = await new UpdateRoomTypeCommandHandler(_db.Object)
+                .Handle(new UpdateRoomTypeCommand(rtId, "Deluxe", null), default);
+
+            result.IsError.Should().BeTrue();
+            result.TopError.Code.Should().Be(AdminErrors.RoomTypes.AlreadyExists.Code);
+        }
     }
 
     public class GetRoomTypesQueryHandlerTests
@@ -287,6 +318,20 @@ namespace HotelBooking.Application.Tests.Admin.Services
             result.IsError.Should().BeTrue();
             result.TopError.Code.Should().Be(AdminErrors.Services.AlreadyExists.Code);
         }
+
+        [Fact]
+        public async Task Handle_DbUniqueViolation_ReturnsAlreadyExists()
+        {
+            _db.Setup(x => x.Services).Returns(new List<Service>().AsQueryable().BuildMockDbSet().Object);
+            _db.Setup(x => x.SaveChangesAsync(default))
+                .ThrowsAsync(new DbUpdateException("services unique", new Exception("IX_services_Name")));
+
+            var result = await new CreateServiceCommandHandler(_db.Object)
+                .Handle(new CreateServiceCommand(" WiFi ", "  Fast  "), default);
+
+            result.IsError.Should().BeTrue();
+            result.TopError.Code.Should().Be(AdminErrors.Services.AlreadyExists.Code);
+        }
     }
 
     public class DeleteServiceCommandHandlerTests
@@ -349,6 +394,37 @@ namespace HotelBooking.Application.Tests.Admin.Services
                 .Handle(new UpdateServiceCommand(Guid.NewGuid(), "X", null), default);
 
             result.IsError.Should().BeTrue();
+        }
+
+        [Fact]
+        public async Task Handle_DuplicateName_ReturnsAlreadyExists()
+        {
+            var svcId = Guid.NewGuid();
+            var svc = TestHelpers.CreateService(id: svcId, name: "Old Name");
+            var other = TestHelpers.CreateService(name: "WiFi");
+            _db.Setup(x => x.Services).Returns(new List<Service> { svc, other }.AsQueryable().BuildMockDbSet().Object);
+
+            var result = await new UpdateServiceCommandHandler(_db.Object)
+                .Handle(new UpdateServiceCommand(svcId, "WiFi", null), default);
+
+            result.IsError.Should().BeTrue();
+            result.TopError.Code.Should().Be(AdminErrors.Services.AlreadyExists.Code);
+        }
+
+        [Fact]
+        public async Task Handle_DbUniqueViolation_ReturnsAlreadyExists()
+        {
+            var svcId = Guid.NewGuid();
+            var svc = TestHelpers.CreateService(id: svcId, name: "Old Name");
+            _db.Setup(x => x.Services).Returns(new List<Service> { svc }.AsQueryable().BuildMockDbSet().Object);
+            _db.Setup(x => x.SaveChangesAsync(default))
+                .ThrowsAsync(new DbUpdateException("services unique", new Exception("IX_services_Name")));
+
+            var result = await new UpdateServiceCommandHandler(_db.Object)
+                .Handle(new UpdateServiceCommand(svcId, "WiFi", " Fast "), default);
+
+            result.IsError.Should().BeTrue();
+            result.TopError.Code.Should().Be(AdminErrors.Services.AlreadyExists.Code);
         }
     }
 }

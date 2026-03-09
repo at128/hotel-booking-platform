@@ -127,6 +127,44 @@ public class UpdateCityCommandHandlerTests
         result.IsError.Should().BeTrue();
         result.TopError.Code.Should().Be(AdminErrors.Cities.NotFound.Code);
     }
+
+    [Fact]
+    public async Task Handle_DuplicateNameCountry_ReturnsAlreadyExists()
+    {
+        var cityId = Guid.NewGuid();
+        var city = TestHelpers.CreateCity(id: cityId, name: "Amman", country: "Jordan");
+        var dup = TestHelpers.CreateCity(name: "New Name", country: "New Country");
+
+        var mock = new List<City> { city, dup }.AsQueryable().BuildMockDbSet();
+        _db.Setup(x => x.Cities).Returns(mock.Object);
+
+        var handler = new UpdateCityCommandHandler(_db.Object);
+        var cmd = new UpdateCityCommand(cityId, "New Name", "New Country", "11180");
+
+        var result = await handler.Handle(cmd, default);
+
+        result.IsError.Should().BeTrue();
+        result.TopError.Code.Should().Be(AdminErrors.Cities.AlreadyExists.Code);
+    }
+
+    [Fact]
+    public async Task Handle_DbUniqueViolation_ReturnsAlreadyExists()
+    {
+        var cityId = Guid.NewGuid();
+        var city = TestHelpers.CreateCity(id: cityId, name: "Old", country: "OC");
+        var mock = new List<City> { city }.AsQueryable().BuildMockDbSet();
+        _db.Setup(x => x.Cities).Returns(mock.Object);
+        _db.Setup(x => x.SaveChangesAsync(default))
+            .ThrowsAsync(new DbUpdateException("cities unique", new Exception("IX_cities_Name_Country")));
+
+        var handler = new UpdateCityCommandHandler(_db.Object);
+        var cmd = new UpdateCityCommand(cityId, "New Name", "New Country", null);
+
+        var result = await handler.Handle(cmd, default);
+
+        result.IsError.Should().BeTrue();
+        result.TopError.Code.Should().Be(AdminErrors.Cities.AlreadyExists.Code);
+    }
 }
 
 public class DeleteCityCommandHandlerTests

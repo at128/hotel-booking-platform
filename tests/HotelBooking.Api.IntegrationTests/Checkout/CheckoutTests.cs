@@ -5,6 +5,9 @@ using HotelBooking.Api.IntegrationTests.Helpers;
 using HotelBooking.Api.IntegrationTests.Infrastructure;
 using HotelBooking.Contracts.Cart;
 using HotelBooking.Contracts.Checkout;
+using HotelBooking.Domain.Bookings;
+using HotelBooking.Domain.Rooms;
+using Microsoft.EntityFrameworkCore;
 using Xunit;
 
 namespace HotelBooking.Api.IntegrationTests.Checkout;
@@ -150,5 +153,86 @@ public class CheckoutTests
             new CreateBookingRequest(new List<Guid> { Guid.NewGuid() }, null));
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task CreateBooking_WithExpiredHold_Returns409()
+    {
+        var (client, _, hold) = await SetupWithHoldAsync();
+
+        using (var db = _factory.CreateDbContext())
+        {
+            var holdId = hold.HoldIds[0];
+            var holdEntity = await db.CheckoutHolds.FirstAsync(h => h.Id == holdId);
+            db.Entry(holdEntity).Property(nameof(CheckoutHold.ExpiresAtUtc))
+                .CurrentValue = DateTimeOffset.UtcNow.AddMinutes(-5);
+            await db.SaveChangesAsync();
+        }
+
+        var response = await client.PostAsJsonAsync("/api/v1/checkout/booking",
+            new CreateBookingRequest(hold.HoldIds, null));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task CreateBooking_WithMismatchedHoldIds_Returns409()
+    {
+        var (client, _, hold) = await SetupWithHoldAsync();
+        var ids = hold.HoldIds.ToList();
+        ids.Add(Guid.NewGuid());
+
+        var response = await client.PostAsJsonAsync("/api/v1/checkout/booking",
+            new CreateBookingRequest(ids, null));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task CreateBooking_HoldsWithDifferentDates_Returns409()
+    {
+        var (client, seed, hold) = await SetupWithHoldAsync();
+
+        using (var db = _factory.CreateDbContext())
+        {
+            var original = await db.CheckoutHolds.FirstAsync(h => h.Id == hold.HoldIds[0]);
+            var another = new CheckoutHold(
+                Guid.NewGuid(),
+                original.UserId,
+                original.HotelId,
+                original.HotelRoomTypeId,
+                original.CheckIn.AddDays(1),
+                original.CheckOut.AddDays(1),
+                1,
+                DateTimeOffset.UtcNow.AddMinutes(10));
+            db.CheckoutHolds.Add(another);
+            await db.SaveChangesAsync();
+
+            var response = await client.PostAsJsonAsync("/api/v1/checkout/booking",
+                new CreateBookingRequest(new List<Guid> { hold.HoldIds[0], another.Id }, null));
+
+            response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        }
+    }
+
+    [Fact]
+    public async Task CreateBooking_WhenRoomsNoLongerAvailable_Returns409()
+    {
+        var (client, seed, hold) = await SetupWithHoldAsync();
+
+        using (var db = _factory.CreateDbContext())
+        {
+            var rooms = await db.Rooms.Where(r => r.HotelRoomTypeId == seed.HotelRoomType.Id).ToListAsync();
+            foreach (var room in rooms)
+            {
+                room.UpdateStatus(RoomStatus.OutOfService);
+            }
+            await db.SaveChangesAsync();
+        }
+
+        var response = await client.PostAsJsonAsync("/api/v1/checkout/booking",
+            new CreateBookingRequest(hold.HoldIds, null));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
     }
 }
